@@ -1,0 +1,17 @@
+# Puzzle – 4×4, Unsolvable (pre-filled 1 with descending row constraint)
+# Fault: row 0 requires col0 > col1 > col2 > col3, but col0 is pre-filled with 1 (minimum value)
+4
+# Grid – 1 given cell
+1,0,0,0
+0,0,0,0
+0,0,0,0
+0,0,0,0
+# Horizontal constraints
+-1,-1,-1
+0,0,0
+0,0,0
+0,0,0
+# Vertical constraints
+0,0,0,0
+0,0,0,0
+0,0,0,0
