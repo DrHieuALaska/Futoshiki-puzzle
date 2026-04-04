@@ -30,10 +30,14 @@ def main():
     # -------------------------
     # 3. Solve
     # -------------------------
+    # A* heuristic options:
+    #   - "ac3"
+    #   - "remaining_unassigned_cells"
+    #   - "inequality_chains"
     # solution = brute_force(puzzle.copy())
     # solution = solve_backtracking(puzzle.copy())
     # solution = solve_hybrid_backtracking_with_fc(puzzle.copy())
-    solution, astar_stats = solve_astar(puzzle.copy())
+    solution, astar_stats = solve_astar(puzzle.copy(), heuristic="ac3")
 
     if solution is None:
         print("No solution found")

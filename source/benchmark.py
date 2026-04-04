@@ -1,5 +1,5 @@
 """
-Runs all four solving algorithms on every test case and reports:
+Runs the configured solving algorithms on every test case and reports:
   • Running time (seconds)
   • Peak heap memory (KB)
   • Number of inferences / node expansions
@@ -9,7 +9,9 @@ Algorithms compared
   1. Brute Force           – blind recursive backtracking, no heuristic
   2. Backtracking (MRV)    – backtracking with Minimum Remaining Values
   3. Hybrid BT + FC        – MRV backtracking + forward-chaining propagation
-  4. A* (AC-3 heuristic)   – best-first search with admissible h via AC-3
+  4. A* (AC-3 h)                 – original AC-3 look-ahead heuristic
+  5. A* (remaining cells h)      – count unresolved cells directly
+  6. A* (inequality chains h)    – cover unresolved inequality chains
 """
 
 import sys
@@ -66,8 +68,24 @@ def run_hybrid(puzzle):
     return _run_with_stats(_hybrid_raw, puzzle)
 
 
-def run_astar(puzzle):
-    solution, stats = solve_astar(puzzle.copy())
+def run_astar_ac3(puzzle):
+    solution, stats = solve_astar(puzzle.copy(), heuristic="ac3")
+    return solution, stats
+
+
+def run_astar_remaining_cells(puzzle):
+    solution, stats = solve_astar(
+        puzzle.copy(),
+        heuristic="remaining_unassigned_cells",
+    )
+    return solution, stats
+
+
+def run_astar_inequality_chains(puzzle):
+    solution, stats = solve_astar(
+        puzzle.copy(),
+        heuristic="inequality_chains",
+    )
     return solution, stats
 
 
@@ -94,7 +112,9 @@ SOLVERS = [
     # ("Brute Force",   run_brute_force),
     ("Backtracking",  run_backtracking),
     ("Hybrid BT+FC",  run_hybrid),
-    ("A* (AC-3 h)",   run_astar),
+    ("A* (AC-3 h)",   run_astar_ac3),
+    ("A* (cells h)",  run_astar_remaining_cells),
+    ("A* (chains h)", run_astar_inequality_chains),
 ]
 
 
