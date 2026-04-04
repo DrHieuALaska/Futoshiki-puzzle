@@ -14,6 +14,9 @@ class Puzzle:
                 return False
         return True
 
+    def getN(self):
+        return self.N
+    
     def get(self, r, c):
         return self.grid[r][c]
 

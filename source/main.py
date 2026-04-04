@@ -3,10 +3,11 @@ from input_output.output_writer import write_output
 
 from search.back_tracking import solve_backtracking
 from search.hybrid_backtracking_with_fc import solve_hybrid_backtracking_with_fc
+from search.forward_chaining_solve import forward_chaining_solve
 
-from FOL.fol_builder import build_fol_kb
-from FOL.cnf_converter import convert_kb_to_cnf
-from source.inference.sat_solver import puzzle_to_assignment, check_cnf
+from FOL.kb import KnowledgeBase
+
+from inference.resolution import resolution
 
 from search.brute_force import brute_force
 from input_output.output_writer import write_output
@@ -24,15 +25,13 @@ def main():
     # -------------------------
     puzzle = parse_input(input_file)
 
-    print("=== INPUT PUZZLE ===")
-    print(puzzle)
-    print()
+    KB = KnowledgeBase(puzzle)
 
     # -------------------------
     # 3. Solve
     # -------------------------
     # solution = solve_backtracking(puzzle)
-    solution = solve_hybrid_backtracking_with_fc(puzzle)
+    solution = solve_hybrid_backtracking_with_fc(puzzle, KB)
 
     if solution is None:
         print("❌ No solution found")
@@ -40,36 +39,6 @@ def main():
 
     print("✅ Solution found:")
     print(solution)
-    print()
-
-    # -------------------------
-    # 4. Build FOL + CNF
-    # -------------------------
-    print("Building FOL knowledge base...")
-    facts, rules = build_fol_kb(puzzle)
-
-    print(f"Facts: {len(facts)}")
-    print(f"Rules: {len(rules)}")
-
-    print("Converting to CNF...")
-    clauses = convert_kb_to_cnf(rules)
-
-    print(f"Clauses: {len(clauses)}")
-    print()
-
-    # -------------------------
-    # 5. Validate solution using CNF
-    # -------------------------
-    print("Validating solution with CNF...")
-
-    assignment = puzzle_to_assignment(solution)
-    is_valid = check_cnf(clauses, assignment)
-
-    if is_valid:
-        print("✅ CNF validation PASSED")
-    else:
-        print("❌ CNF validation FAILED")
-
     print()
 
     # -------------------------

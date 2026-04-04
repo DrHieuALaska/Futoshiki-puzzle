@@ -1,57 +1,57 @@
-from model.constraints import is_valid
-from inference.forward_chaining import forward_propagate
+from inference.forward_chaining import forward_chaining
 
-def solve_hybrid_backtracking_with_fc(puzzle):
-    """
-    Entry point
-    """
-    # Initialize domains
-    domains = {
-        (i, j): set(range(1, puzzle.N + 1))
-        for i in range(puzzle.N)
-        for j in range(puzzle.N)
-    }
+def solve_hybrid_backtracking_with_fc(puzzle, kb):
+    N = puzzle.getN()
+    facts = set(kb.get_facts())
 
-    # Apply given values
-    for i in range(puzzle.N):
-        for j in range(puzzle.N):
-            val = puzzle.grid[i][j]
-            if val != 0:
-                domains[(i, j)] = {val}
+    # ── build initial domains ────────────────────────────────
+    # Start with full domain {1..N} for every cell
+    domains = {(i, j): set(range(1, N + 1))
+               for i in range(N) for j in range(N)}
 
-    return backtrack_with_fc(puzzle, domains)
+    # Fix domains for cells that already have a Val fact
+    for fact in facts:
+        if fact[0] == "Val":
+            _, i, j, v = fact
+            domains[(i, j)] = {v}
+
+    return backtrack_with_fc(puzzle, facts, domains)
 
 
-def backtrack_with_fc(puzzle, domains):
-    # 1. Forward propagation
-    if not forward_propagate(puzzle, domains):
+def backtrack_with_fc(puzzle, facts, domains):
+    # 1. Deep Copy before mutating — never touch caller's state
+    working_domains = copy_domains(domains)
+    working_facts = set(facts)
+
+    # 2. Forward propagation on working copies
+    valid, working_facts, working_domains = forward_chaining(
+        puzzle, working_facts, working_domains
+    )
+
+    if not valid:
         return None  # contradiction
 
     # 2. Check if solved
-    if all(len(domains[cell]) == 1 for cell in domains):
+    if all(len(working_domains[cell]) == 1 for cell in working_domains):
         solution = puzzle.copy()
-        for (i, j), vals in domains.items():
+        for (i, j), vals in working_domains.items():
             solution.grid[i][j] = next(iter(vals)) # Assign the single value in domain to solution
         return solution
 
     # 3. Choose cell (MRV)
-    cell = select_mrv(domains)
+    cell = select_mrv(working_domains)
     i, j = cell
 
     # 4. Try values
-    for val in list(domains[cell]):
-        if is_valid(puzzle, i, j, val):
-            # deep copy puzzle and domains
-            new_puzzle = puzzle.copy()
-            new_domains = copy_domains(domains)
+    for val in list(working_domains[cell]):
+        # deep copy domains
+        new_domains = copy_domains(working_domains)
+        new_domains[(i, j)] = {val}
+        candidate_facts = working_facts | {("Val", i, j, val)}
 
-            # Assign value
-            new_puzzle.grid[i][j] = val
-            new_domains[(i, j)] = {val}
-
-            result = backtrack_with_fc(new_puzzle, new_domains)
-            if result:
-                return result 
+        result = backtrack_with_fc(puzzle, candidate_facts, new_domains)
+        if result:
+            return result 
 
     return None
 

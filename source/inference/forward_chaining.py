@@ -1,163 +1,141 @@
-from model.constraints import is_valid
-
-
-def forward_chaining_solve(puzzle):
-    """
-    Solve using constraint propagation (FOL-style)
-    """
-
-    # Step 1: Initialize domains
-    domains = {
-        (i, j): set(range(1, puzzle.N + 1))
-        for i in range(puzzle.N)
-        for j in range(puzzle.N)
-    }
-
-    # Apply given values
-    for i in range(puzzle.N):
-        for j in range(puzzle.N):
-            val = puzzle.grid[i][j]
-            if val != 0:
-                domains[(i, j)] = {val}
-
-    # Step 2: Forward propagate constraints
-    if not forward_propagate(puzzle, domains):
-        return None  # contradiction found
-
-    # Step 3: Check if solved
-    solution = puzzle.copy()
-
-    for (i, j), domain in domains.items():
-        if len(domain) == 1:
-            solution.grid[i][j] = next(iter(domain))
-        else:
-            return None  # not fully solved
-
-    return solution
-
-def propagate_inequality(puzzle, domains, i, j):
-    changed = False
-    val_set = domains[(i, j)]
-
-    # Only act if single value
-    if len(val_set) != 1:
-        return True, False
-
-    val = next(iter(val_set))
-
-    # Right neighbor
-    if j < puzzle.N - 1:
-        constraint = puzzle.h_constraints[i][j]
-        neighbor = (i, j + 1)
-        new_domain = domains[neighbor] # default: no change, avoid uninitialized new_domain if constraint == 0:
-
-        if constraint == 1:  # <
-            new_domain = {v for v in domains[neighbor] if v > val}
-
-        elif constraint == -1:  # >
-            new_domain = {v for v in domains[neighbor] if v < val}
-        
-        if new_domain != domains[neighbor]:
-            domains[neighbor] = new_domain
-            changed = True
-            if len(new_domain) == 0: # contradiction
-                return False
-        
-
-    # Left neighbor
-    if j > 0:
-        constraint = puzzle.h_constraints[i][j - 1]
-        neighbor = (i, j - 1)
-        new_domain = domains[neighbor] # default: no change
-
-        if constraint == 1:  # left < current
-            new_domain = {v for v in domains[neighbor] if v < val}
-
-        elif constraint == -1:  # left > current
-            new_domain = {v for v in domains[neighbor] if v > val}
-        
-        if new_domain != domains[neighbor]:
-            domains[neighbor] = new_domain
-            changed = True
-            if len(new_domain) == 0: # contradiction
-                return False
-
-    # Down neighbor
-    if i < puzzle.N - 1:
-        constraint = puzzle.v_constraints[i][j]
-        neighbor = (i + 1, j)
-        new_domain = domains[neighbor] # default: no change
-
-        if constraint == 1:  # <
-            new_domain = {v for v in domains[neighbor] if v > val}
-
-        elif constraint == -1:  # >
-            new_domain = {v for v in domains[neighbor] if v < val}
-
-        if new_domain != domains[neighbor]:
-            domains[neighbor] = new_domain
-            changed = True
-            if len(new_domain) == 0: # contradiction
-                return False
-    
-    # Up neighbor
-    if i > 0:
-        constraint = puzzle.v_constraints[i - 1][j]
-        neighbor = (i - 1, j)
-        new_domain = domains[neighbor] # default: no change
-
-        if constraint == 1:  # up < current
-            new_domain = {v for v in domains[neighbor] if v < val}
-
-        elif constraint == -1:  # up > current
-            new_domain = {v for v in domains[neighbor] if v > val}
-        
-        if new_domain != domains[neighbor]:
-            domains[neighbor] = new_domain
-            changed = True
-            if len(new_domain) == 0: # contradiction
-                return False
-
-    return True, changed
-
-def forward_propagate(puzzle, domains):
-    """
-    Apply constraints repeatedly until no change
-    Return False if contradiction found
-    """
+def forward_chaining(puzzle, facts, domains):
+    # ── propagate ─────────────────────────────────────────────
     changed = True
+    N = puzzle.getN()
 
     while changed:
         changed = False
 
-        for i in range(puzzle.N):
-            for j in range(puzzle.N):
-                if len(domains[(i, j)]) == 1:
-                    val = next(iter(domains[(i, j)])) # single value assigned
+        # A2: cell assigned v → remove v from nothing (domain already fixed)
+        # A3: Val(i,j1,v) assigned → remove v from all other cells in row
+        changed |= _propagate_row(facts, domains, N)
 
-                    # Row + Column elimination
-                    for k in range(puzzle.N):
-                        if k != j and val in domains[(i, k)]:
-                            domains[(i, k)].discard(val)
-                            if len(domains[(i, k)]) == 0: # contradiction
-                                return False
-                            changed = True
+        # A4: Val(i1,j,v) assigned → remove v from all other cells in col
+        changed |= _propagate_col(facts, domains, N)
 
-                        if k != i and val in domains[(k, j)]:
-                            domains[(k, j)].discard(val)
-                            if len(domains[(k, j)]) == 0: # contradiction
-                                return False
-                            changed = True
+        # A5/A6: inequality constraints → restrict domains
+        changed |= _propagate_inequalities(facts, domains, puzzle)
 
-                    # Inequality constraints
-                    no_contradiction, local_changed = propagate_inequality(puzzle, domains, i, j)
-                    changed = changed or local_changed # if any change from inequality propagation
-                    if not no_contradiction:
-                        return False
+        # Derive new Val facts when domain collapses to 1
+        changed |= _derive_val_facts(facts, domains)
 
-    # Check contradiction
-    for vals in domains.values():
-        if len(vals) == 0:
-            return False
+        # Contradiction: any domain became empty
+        if any(len(d) == 0 for d in domains.values()):
+            return False, facts, domains
 
-    return True
+    return True, facts, domains
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Propagation helpers
+# ─────────────────────────────────────────────────────────────────────
+
+def _propagate_row(facts, domains, N):
+    """A3: if Val(i,j,v) is known, remove v from all other cells in row i."""
+    changed = False
+    for fact in list(facts):
+        if fact[0] == "Val":
+            _, i, j, v = fact
+            for j2 in range(N):
+                if j2 != j and v in domains[(i, j2)]:
+                    domains[(i, j2)].discard(v)
+                    changed = True
+    return changed
+
+
+def _propagate_col(facts, domains, N):
+    """A4: if Val(i,j,v) is known, remove v from all other cells in col j."""
+    changed = False
+    for fact in list(facts):
+        if fact[0] == "Val":
+            _, i, j, v = fact
+            for i2 in range(N):
+                if i2 != i and v in domains[(i2, j)]:
+                    domains[(i2, j)].discard(v)
+                    changed = True
+    return changed
+
+
+def _propagate_inequalities(facts, domains, puzzle):
+    """
+    Inequality propagation:
+      LessH(i,j)   → domain[i][j]   must be < some value in domain[i][j+1]
+                   → domain[i][j+1] must be > some value in domain[i][j]
+      GreaterH(i,j) → opposite
+      Same for LessV / GreaterV
+    """
+    changed = False
+    N = puzzle.getN()
+
+    for fact in facts:
+        tag = fact[0]
+
+        if tag == "LessH":
+            # grid[i][j] < grid[i][j+1]
+            _, i, j = fact
+            changed |= _apply_less(domains, (i, j), (i, j + 1))
+
+        elif tag == "GreaterH":
+            # grid[i][j] > grid[i][j+1]
+            _, i, j = fact
+            changed |= _apply_less(domains, (i, j + 1), (i, j))
+
+        elif tag == "LessV":
+            # grid[i][j] < grid[i+1][j]
+            _, i, j = fact
+            changed |= _apply_less(domains, (i, j), (i + 1, j))
+
+        elif tag == "GreaterV":
+            # grid[i][j] > grid[i+1][j]
+            _, i, j = fact
+            changed |= _apply_less(domains, (i + 1, j), (i, j))
+
+    return changed
+
+
+def _apply_less(domains, smaller_cell, larger_cell):
+    """
+    Enforce: value of smaller_cell < value of larger_cell.
+
+    - Remove from smaller_cell any v >= max(larger_cell domain)
+    - Remove from larger_cell any v <= min(smaller_cell domain)
+    """
+    changed = False
+    d_small = domains[smaller_cell]
+    d_large = domains[larger_cell]
+
+    if not d_small or not d_large:
+        return False
+
+    max_large = max(d_large)
+    min_small = min(d_small)
+
+    # smaller_cell values must be < max_large
+    new_small = {v for v in d_small if v < max_large}
+    if new_small != d_small:
+        domains[smaller_cell] = new_small
+        changed = True
+
+    # larger_cell values must be > min_small
+    new_large = {v for v in d_large if v > min_small}
+    if new_large != d_large:
+        domains[larger_cell] = new_large
+        changed = True
+
+    return changed
+
+
+def _derive_val_facts(facts, domains):
+    """
+    When a domain collapses to exactly 1 value → derive Val(i,j,v) fact.
+    This is where forward chaining actually produces NEW positive facts.
+    """
+    changed = False
+    for (i, j), domain in domains.items():
+        if len(domain) == 1:
+            v = next(iter(domain))
+            val_fact = ("Val", i, j, v)
+            if val_fact not in facts:
+                facts.add(val_fact)
+                changed = True
+    return changed
