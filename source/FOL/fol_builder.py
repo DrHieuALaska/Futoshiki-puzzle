@@ -17,10 +17,9 @@ def implies(premises, conclusion):
 # Build FOL Knowledge Base
 # -------------------------
 
-def build_fol_kb(puzzle):
+def build_fol_facts(puzzle):
     N = puzzle.N
     facts = []
-    rules = []
 
     # -------------------------
     # 1. Given clues → facts
@@ -52,9 +51,15 @@ def build_fol_kb(puzzle):
             elif c == -1:
                 facts.append(GreaterV(i, j))
 
+    return facts
+
+
+def build_fol_grounded_rules(puzzle):
     # -------------------------
-    # 3. Rules — OPTIMIZED
+    # Rules — OPTIMIZED
     # -------------------------
+    N = puzzle.getN()
+    rules = []
 
     # A2: At most one value per cell
     # Only upper triangle of (v1, v2) pairs — symmetric, so halves the count
@@ -128,32 +133,12 @@ def build_fol_kb(puzzle):
                     implies([Val(i, j, v1), Val(i + 1, j, v2)], ("FALSE",))
                 )
 
-    return facts, rules
+    return rules
 
 # ONE rule replaces hundreds of ground instances
-def build_fol_kb_proper(puzzle):
+def build_fol_symbolic_rules(puzzle):
     N = puzzle.N
-    facts = []
     rules = []  # rules stay symbolic with variables
-
-    # Facts: same as before (grounding is fine for facts)
-    for i in range(N):
-        for j in range(N):
-            if puzzle.grid[i][j] != 0:
-                facts.append(Given(i, j, puzzle.grid[i][j]))
-                facts.append(Val(i, j, puzzle.grid[i][j]))
-
-    for i in range(N):
-        for j in range(N - 1):
-            c = puzzle.h_constraints[i][j]
-            if c ==  1: facts.append(LessH(i, j))
-            if c == -1: facts.append(GreaterH(i, j))
-
-    for i in range(N - 1):
-        for j in range(N):
-            c = puzzle.v_constraints[i][j]
-            if c ==  1: facts.append(LessV(i, j))
-            if c == -1: facts.append(GreaterV(i, j))
 
     # RULES: use variable placeholders — grounding happens at inference time
     rules = [
@@ -210,4 +195,4 @@ def build_fol_kb_proper(puzzle):
         },
     ]
 
-    return facts, rules
+    return rules
