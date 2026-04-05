@@ -61,7 +61,7 @@ def propagate_inequality(puzzle, domains, i, j):
             domains[neighbor] = new_domain
             changed = True
             if len(new_domain) == 0: # contradiction
-                return False
+                return False, True
         
 
     # Left neighbor
@@ -80,7 +80,7 @@ def propagate_inequality(puzzle, domains, i, j):
             domains[neighbor] = new_domain
             changed = True
             if len(new_domain) == 0: # contradiction
-                return False
+                return False, True
 
     # Down neighbor
     if i < puzzle.N - 1:
@@ -98,7 +98,7 @@ def propagate_inequality(puzzle, domains, i, j):
             domains[neighbor] = new_domain
             changed = True
             if len(new_domain) == 0: # contradiction
-                return False
+                return False, True
     
     # Up neighbor
     if i > 0:
@@ -116,7 +116,7 @@ def propagate_inequality(puzzle, domains, i, j):
             domains[neighbor] = new_domain
             changed = True
             if len(new_domain) == 0: # contradiction
-                return False
+                return False, True
 
     return True, changed
 

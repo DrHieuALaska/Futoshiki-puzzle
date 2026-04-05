@@ -15,8 +15,8 @@ def main():
     # -------------------------
     # 1. Choose input file
     # -------------------------
-    input_file = "Inputs/input-02.txt"
-    output_file = "Outputs/output-02.txt"
+    input_file = "Inputs/input-11.txt"
+    output_file = "Outputs/output-11.txt"
 
     # -------------------------
     # 2. Parse input

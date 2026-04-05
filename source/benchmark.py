@@ -104,17 +104,17 @@ TEST_CASES = [
     # ("08", "source/Inputs/input-08.txt", "5×5 cyclic solution,    3 givens"),
     # ("09", "source/Inputs/input-09.txt", "5×5 cyclic, all constraints, 0 givens"),
     # ("10", "source/Inputs/input-10.txt", "5×5 Solution-D, all constraints, 3 givens"),
-    ("11", "source/Inputs/input-11.txt", "9x9"),
+    ("11", "Inputs/input-11.txt", "9x9"),
     # ("12", "source/Inputs/input-12.txt", "9x9"),
 ]
 
 SOLVERS = [
     # ("Brute Force",   run_brute_force),
-    ("Backtracking",  run_backtracking),
-    ("Hybrid BT+FC",  run_hybrid),
+    # ("Backtracking",  run_backtracking),
+    # ("Hybrid BT+FC",  run_hybrid),
     ("A* (AC-3 h)",   run_astar_ac3),
-    ("A* (cells h)",  run_astar_remaining_cells),
-    ("A* (chains h)", run_astar_inequality_chains),
+    # ("A* (cells h)",  run_astar_remaining_cells),
+    # ("A* (chains h)", run_astar_inequality_chains),
 ]
 
 
