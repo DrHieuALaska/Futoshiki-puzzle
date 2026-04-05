@@ -280,8 +280,11 @@ def solve_astar(puzzle, heuristic='ac3'):
             if new_h == float('inf'):
                 continue   # infeasible: prune
 
-            # OPT #7: solved successor — return immediately, skip heap push.
-            if new_h == 0:
+            # Safe early exit only when every domain is already singleton.
+            # A heuristic value of 0 does not necessarily mean the puzzle is
+            # solved, especially for inequality_chains on boards with few or
+            # no inequality constraints.
+            if all(len(vals) == 1 for vals in succ_dom.values()):
                 solution = _extract_solution(succ_puz, succ_dom)
                 _, peak  = tracemalloc.get_traced_memory()
                 tracemalloc.stop()

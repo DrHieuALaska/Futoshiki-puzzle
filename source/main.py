@@ -15,8 +15,8 @@ def main():
     # -------------------------
     # 1. Choose input file
     # -------------------------
-    input_file = "Inputs/input-11.txt"
-    output_file = "Outputs/output-11.txt"
+    input_file = "Inputs/input-05.txt"
+    output_file = "Outputs/output-05.txt"
 
     # -------------------------
     # 2. Parse input
@@ -37,7 +37,7 @@ def main():
     # solution = brute_force(puzzle.copy())
     # solution = solve_backtracking(puzzle.copy())
     # solution = solve_hybrid_backtracking_with_fc(puzzle.copy())
-    solution, astar_stats = solve_astar(puzzle.copy(), heuristic="ac3")
+    solution, astar_stats = solve_astar(puzzle.copy(), heuristic="inequality_chains")
 
     if solution is None:
         print("No solution found")
