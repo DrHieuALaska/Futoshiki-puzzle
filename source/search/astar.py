@@ -2,7 +2,7 @@ import heapq
 import time
 import tracemalloc
 
-from inference.forward_chaining import forward_propagate
+from inference.forward_chaining import forward_chaining
 
 
 # ---------------------------------------------------------------------------
@@ -186,9 +186,10 @@ def _grid_key(puzzle):
 # ---------------------------------------------------------------------------
 # A* solver
 
-def solve_astar(puzzle, heuristic='ac3'):
+def solve_astar(puzzle, kb, heuristic='ac3'):
     start_time = time.time()
     tracemalloc.start()
+
 
     expansions = 0
     generated  = 0
@@ -198,8 +199,11 @@ def solve_astar(puzzle, heuristic='ac3'):
 
     domains_0 = _init_domains(puzzle)
 
-    # Initial propagation pass
-    if not forward_propagate(puzzle, domains_0):
+    # Initial forward propagation on the initial KB facts, before A* loop.
+    facts = set(kb.get_facts())
+    valid, facts, domains_0 = forward_chaining(puzzle, facts, domains_0)
+
+    if not valid:
         _, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
         return None, _make_stats(0, 0, start_time, peak)
@@ -219,13 +223,13 @@ def solve_astar(puzzle, heuristic='ac3'):
         return None, _make_stats(0, 0, start_time, peak)
 
     tie       = 0
-    open_list = [(h0, 0, tie, puzzle.copy(), domains_0)]
+    open_list = [(h0, 0, tie, puzzle.copy(), facts, domains_0)]
     tie      += 1
 
     closed = set()
 
     while open_list:
-        f, g, _, curr_puz, curr_dom = heapq.heappop(open_list)
+        f, g, _, curr_puz, curr_facts, curr_dom = heapq.heappop(open_list)
 
         key = _grid_key(curr_puz)
         if key in closed:
@@ -262,11 +266,12 @@ def solve_astar(puzzle, heuristic='ac3'):
 
             succ_puz              = curr_puz.copy()
             succ_puz.grid[ci][cj] = val
-
             succ_dom           = _copy_domains(curr_dom)
             succ_dom[(ci, cj)] = {val}
 
-            if not forward_propagate(succ_puz, succ_dom):
+            succ_facts = curr_facts | {("Val", ci, cj, val)}
+            valid, succ_facts, succ_dom = forward_chaining(succ_puz, succ_facts, succ_dom)
+            if not valid:
                 continue   # contradiction: prune
 
             succ_key = _grid_key(succ_puz)
@@ -290,13 +295,14 @@ def solve_astar(puzzle, heuristic='ac3'):
                 tracemalloc.stop()
                 return solution, _make_stats(expansions + 1, generated + 1, start_time, peak)
 
-            heapq.heappush(open_list, (new_g + new_h, new_g, tie, succ_puz, succ_dom))
+            heapq.heappush(open_list, (new_g + new_h, new_g, tie, succ_puz, succ_facts, succ_dom))
             tie       += 1
             generated += 1
 
     # Open list exhausted: no solution
     _, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
+    print("Open list exhausted. No solution found.")
     return None, _make_stats(expansions, generated, start_time, peak)
 
 

@@ -6,40 +6,30 @@ from search.brute_force import brute_force
 from search.hybrid_backtracking_with_fc import solve_hybrid_backtracking_with_fc
 from search.astar import solve_astar
 
-from FOL.fol_builder import build_fol_kb
-from FOL.cnf_converter import convert_kb_to_cnf
-from inference.sat_solver import puzzle_to_assignment, check_cnf
+from FOL.kb import KnowledgeBase
 
 import os
 
-<<<<<<< HEAD
-def main():
-    # -------------------------
-    # 1. Choose input file
-    # -------------------------
-    input_file = "Inputs/input-05.txt"
-    output_file = "Outputs/output-05.txt"
-=======
 # -------------------------
 # Configuration
 # -------------------------
 TEST_CASES = [
-    ("01", "Inputs/input-01.txt", "3x3"),
-    ("02", "Inputs/input-02.txt", "3x3"),
-    ("03", "Inputs/input-03.txt", "5x5"),
-    ("04", "Inputs/input-04.txt", "5x5"),
-    ("05", "Inputs/input-05.txt", "6x6"),
-    ("06", "Inputs/input-06.txt", "6x6"),
-    ("07", "Inputs/input-07.txt", "6x6"),
-    ("08", "Inputs/input-08.txt", "6x6"),
+    # ("01", "Inputs/input-01.txt", "3x3"),
+    # ("02", "Inputs/input-02.txt", "3x3"),
+    # ("03", "Inputs/input-03.txt", "5x5"),
+    # ("04", "Inputs/input-04.txt", "5x5"),
+    # ("05", "Inputs/input-05.txt", "6x6"),
+    # ("06", "Inputs/input-06.txt", "6x6"),
+    # ("07", "Inputs/input-07.txt", "6x6"),
+    # ("08", "Inputs/input-08.txt", "6x6"),
     ("09", "Inputs/input-09.txt", "9x9"),
     ("10", "Inputs/input-10.txt", "9x9"),
-    ("11", "Inputs/input-11.txt", "9x9"),
+    # ("11", "Inputs/input-11.txt", "9x9"),
+    # ("12", "Inputs/input-12.txt", "9x9"),
 ]
->>>>>>> 7c36dd1 (High impact test-case)
 
 OUTPUT_DIR = "Outputs"
-HEURISTIC  = "ac3"
+HEURISTIC  = "remaining_unassigned_cells"
 
 
 def run_one(tc_id: str, input_file: str, tc_size: str):
@@ -57,22 +47,10 @@ def run_one(tc_id: str, input_file: str, tc_size: str):
     print(puzzle)
     print()
 
-<<<<<<< HEAD
-    # -------------------------
-    # 3. Solve
-    # -------------------------
-    # A* heuristic options:
-    #   - "ac3"
-    #   - "remaining_unassigned_cells"
-    #   - "inequality_chains"
-    # solution = brute_force(puzzle.copy())
-    # solution = solve_backtracking(puzzle.copy())
-    # solution = solve_hybrid_backtracking_with_fc(puzzle.copy())
-    solution, astar_stats = solve_astar(puzzle.copy(), heuristic="inequality_chains")
-=======
+    KB = KnowledgeBase(puzzle)  # also builds FOL + CNF, but we don't use it for solving in this implementation
+
     # ── 2. Solve ──────────────────────────────────────────────
-    solution, astar_stats = solve_astar(puzzle.copy(), heuristic=HEURISTIC)
->>>>>>> 7c36dd1 (High impact test-case)
+    solution, astar_stats = solve_astar(puzzle.copy(), KB, heuristic="ac3")
 
     if solution is None:
         print("No solution found.\n")
@@ -86,23 +64,6 @@ def run_one(tc_id: str, input_file: str, tc_size: str):
     print(f"Memory (KB): {astar_stats['peak_mem_kb']:.2f}")
     print()
 
-    # ── 3. Build FOL + CNF ────────────────────────────────────
-    print("Building FOL knowledge base...")
-    facts, rules = build_fol_kb(puzzle)
-    print(f"Facts  : {len(facts)}")
-    print(f"Rules  : {len(rules)}")
-
-    print("Converting to CNF...")
-    clauses = convert_kb_to_cnf(rules)
-    print(f"Clauses: {len(clauses)}")
-    print()
-
-    # ── 4. Validate ───────────────────────────────────────────
-    print("Validating solution with CNF...")
-    assignment = puzzle_to_assignment(solution)
-    is_valid   = check_cnf(clauses, assignment)
-    print("CNF validation", "PASSED ✓" if is_valid else "FAILED ✗")
-    print()
 
     # ── 5. Write output ───────────────────────────────────────
     os.makedirs(OUTPUT_DIR, exist_ok=True)
