@@ -1,17 +1,22 @@
-# Puzzle – 4×4, Unsolvable (pre-filled 1 with descending row constraint)
-# Fault: row 0 requires col0 > col1 > col2 > col3, but col0 is pre-filled with 1 (minimum value)
-4
-# Grid – 1 given cell
+# TC03_5x5_easy
+# 5x5 easy: 3 clues, sparse constraints. Minimal branching expected.
+# STAT_NOTE: Expect: ac3 and inequality_chains similar. Tests heuristic overhead on easy puzzles.
+# SOLUTION: 1,2,3,4,5 | 2,3,4,5,1 | 3,4,5,1,2 | 4,5,1,2,3 | 5,1,2,3,4
+5
+# Grid (0=empty)
+1,0,0,0,0
+0,0,0,0,0
+0,0,5,0,0
+0,0,0,0,0
+0,0,0,0,4
+# Horizontal constraints (1=<, -1=>)
 1,0,0,0
 0,0,0,0
+0,0,-1,0
 0,0,0,0
-0,0,0,0
-# Horizontal constraints
--1,-1,-1
-0,0,0
-0,0,0
-0,0,0
-# Vertical constraints
-0,0,0,0
-0,0,0,0
-0,0,0,0
+0,0,0,1
+# Vertical constraints (1=<, -1=>)
+1,0,0,0,0
+0,0,0,0,0
+0,0,0,0,1
+0,-1,0,0,0

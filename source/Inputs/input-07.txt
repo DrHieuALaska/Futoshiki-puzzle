@@ -1,17 +1,25 @@
-# Puzzle 07 – 4×4, Solution A, PARTIAL constraints only, 6 given cells (stress-test backtracking)
-# Solution: 1 2 3 4 / 2 3 4 1 / 3 4 1 2 / 4 1 2 3
-4
-# Grid – 6 given cells
-1,0,3,0
-0,3,0,0
-3,0,1,0
-0,0,0,3
-# Horizontal constraints – sparse
-0,1,0
-0,0,-1
-0,0,0
-0,1,0
-# Vertical constraints – sparse
-1,0,0,0
-0,0,-1,0
-0,0,0,0
+# TC07_6x6_constraint_heavy
+# 6x6 constraint-heavy: 0 clues, ALL constraints. Max inequality chain density.
+# STAT_NOTE: Expect: inequality_chains maximally better. Best showcase for bipartite matching value.
+# SOLUTION: 1,2,3,4,5,6 | 2,3,4,5,6,1 | 3,4,5,6,1,2 | 4,5,6,1,2,3 | 5,6,1,2,3,4 | 6,1,2,3,4,5
+6
+# Grid (0=empty)
+0,0,0,0,0,0
+0,0,0,0,0,0
+0,0,0,0,0,0
+0,0,0,0,0,0
+0,0,0,0,0,0
+0,0,0,0,0,0
+# Horizontal constraints (1=<, -1=>)
+1,1,1,1,1
+1,1,1,1,-1
+1,1,1,-1,1
+1,1,-1,1,1
+1,-1,1,1,1
+-1,1,1,1,1
+# Vertical constraints (1=<, -1=>)
+1,1,1,1,1,-1
+1,1,1,1,-1,1
+1,1,1,-1,1,1
+1,1,-1,1,1,1
+1,-1,1,1,1,1

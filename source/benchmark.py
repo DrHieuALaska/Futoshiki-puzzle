@@ -94,6 +94,7 @@ def run_astar_inequality_chains(puzzle):
 # ─────────────────────────────────────────────────────────────────────────────
 
 TEST_CASES = [
+<<<<<<< HEAD
     # ("01", "source/Inputs/input-01.txt", "4×4 partial constraints, 4 givens"),
     # ("02", "source/Inputs/input-02.txt", "4×4 all constraints,    4 givens"),
     # ("03", "source/Inputs/input-03.txt", "4×4 all constraints,    2 givens (easy)"),
@@ -104,8 +105,19 @@ TEST_CASES = [
     # ("08", "source/Inputs/input-08.txt", "5×5 cyclic solution,    3 givens"),
     # ("09", "source/Inputs/input-09.txt", "5×5 cyclic, all constraints, 0 givens"),
     # ("10", "Inputs/input-10.txt", "5×5 Solution-D, all constraints, 3 givens"),
+=======
+    ("01", "Inputs/input-01.txt", "3x3"),
+    ("02", "Inputs/input-02.txt", "3x3"),
+    ("03", "Inputs/input-03.txt", "5×5"),
+    ("04", "Inputs/input-04.txt", "5×5"),
+    ("05", "Inputs/input-05.txt", "6×6"),
+    ("06", "Inputs/input-06.txt", "6×6"),
+    ("07", "Inputs/input-07.txt", "6×6"),
+    ("08", "Inputs/input-08.txt", "6×6"),
+    ("09", "Inputs/input-09.txt", "9×9"),
+    ("10", "Inputs/input-10.txt", "9×9"),
+>>>>>>> 7c36dd1 (High impact test-case)
     ("11", "Inputs/input-11.txt", "9x9"),
-    # ("12", "source/Inputs/input-12.txt", "9x9"),
 ]
 
 SOLVERS = [
