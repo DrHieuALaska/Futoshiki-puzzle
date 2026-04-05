@@ -1,9 +1,19 @@
+import time
+import tracemalloc
 def solve_backtracking(puzzle):
     """
     Entry function
     """
-    solution = backtrack(puzzle)
-    return solution
+    start_time = time.time()
+    tracemalloc.start()
+
+    copyPuzzle = puzzle.copy()
+    solution = backtrack(copyPuzzle)
+
+    _, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    
+    return solution, _make_stats(start_time, peak)
 
 # Helper functions for backtracking search
 def count_valid_options(puzzle, r, c):
@@ -54,3 +64,9 @@ def backtrack(puzzle):
             puzzle.set(r, c, 0)
 
     return None
+
+def _make_stats(start_time, peak_bytes):
+    return {
+        'time_sec':    round(time.time() - start_time, 6),
+        'peak_mem_kb': round(peak_bytes / 1024, 2),
+    }

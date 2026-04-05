@@ -1,6 +1,11 @@
+import time
+import tracemalloc
 from inference.forward_chaining import forward_chaining
 
 def forward_chaining_solve(puzzle, kb):
+    start_time = time.time()
+    tracemalloc.start()
+
     N = puzzle.getN()
     facts = set(kb.get_facts())
 
@@ -18,7 +23,9 @@ def forward_chaining_solve(puzzle, kb):
     # Step 2: Forward chaining solve
     valid, _, _ = forward_chaining(puzzle, facts, domains)
     if not valid:
-        return False, None, None   # contradiction in initial KB
+        _, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        return False, None, None, _make_stats(start_time, peak)   # contradiction in initial KB
 
     # Step 3: Check if solved
     solution = puzzle.copy()
@@ -30,5 +37,13 @@ def forward_chaining_solve(puzzle, kb):
         else:
             is_complete = False    # FC couldn't determine this cell
 
-    return is_complete, solution, domains  # caller decides what to do
-    
+
+    _, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    return is_complete, solution, domains, _make_stats(start_time, peak)
+
+def _make_stats(start_time, peak_bytes):
+    return {
+        'time_sec':    round(time.time() - start_time, 6),
+        'peak_mem_kb': round(peak_bytes / 1024, 2),
+    }

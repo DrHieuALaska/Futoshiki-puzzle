@@ -1,5 +1,11 @@
-def brute_force(puzzle):
-    
+import time
+import tracemalloc
+
+def brute_force(puzzle):  
+    start_time = time.time()
+    tracemalloc.start()
+    copyPuzzle = puzzle.copy()
+
     # Backtracking search (recursive)
     def solve(cells, idx):
         if idx == len(cells): return True
@@ -12,7 +18,18 @@ def brute_force(puzzle):
         return False
     
     # Get list of empty cells of the grid
-    empty = puzzle.get_empty_cells()
-    if solve(empty, 0):
-        return puzzle
-    return None
+    empty = copyPuzzle.get_empty_cells()
+    result = solve(empty, 0)
+
+    _, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+
+    if result:
+        return copyPuzzle, _make_stats(start_time, peak)
+    return None, _make_stats(start_time, peak)
+
+def _make_stats(start_time, peak_bytes):
+    return {
+        'time_sec':    round(time.time() - start_time, 6),
+        'peak_mem_kb': round(peak_bytes / 1024, 2),
+    }

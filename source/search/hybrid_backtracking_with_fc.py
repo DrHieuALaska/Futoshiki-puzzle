@@ -1,6 +1,11 @@
+import time
+import tracemalloc
 from inference.forward_chaining import forward_chaining
 
 def solve_hybrid_backtracking_with_fc(puzzle, kb):
+    start_time = time.time()
+    tracemalloc.start()
+
     N = puzzle.getN()
     facts = set(kb.get_facts())
 
@@ -14,8 +19,11 @@ def solve_hybrid_backtracking_with_fc(puzzle, kb):
         if fact[0] == "Val":
             _, i, j, v = fact
             domains[(i, j)] = {v}
-
-    return backtrack_with_fc(puzzle, facts, domains)
+    solution = backtrack_with_fc(puzzle, facts, domains)
+    
+    _, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    return solution, _make_stats(start_time, peak)
 
 
 def backtrack_with_fc(puzzle, facts, domains):
@@ -63,3 +71,9 @@ def select_mrv(domains):
 
 def copy_domains(domains):
     return {k: set(v) for k, v in domains.items()}
+
+def _make_stats(start_time, peak_bytes):
+    return {
+        'time_sec':    round(time.time() - start_time, 6),
+        'peak_mem_kb': round(peak_bytes / 1024, 2),
+    }
