@@ -98,6 +98,7 @@ from search.brute_force import brute_force
 from search.hybrid_backtracking_with_fc import solve_hybrid_backtracking_with_fc
 from search.astar import solve_astar
 from search.forward_chaining_solve import forward_chaining_solve
+from search.backward_chaining_solve import backward_chaining_solve
 
 from FOL.kb import KnowledgeBase
 
@@ -106,7 +107,7 @@ from FOL.kb import KnowledgeBase
 # USER CONFIG
 # ============================================================
 
-ALGORITHM = "astar"   # options: backtracking, astar, bruteforce, forward_chaining, hybrid
+ALGORITHM = "astar"   # options: backtracking, astar, bruteforce, forward_chaining, backward_chaining, hybrid
 DIFFICULTY = "easy"   # easy, medium, hard
 SIZE = "4x4"          # 4x4 → 9x9
 TEST_IDS = ["01", "02", "03"]  # which files to run
@@ -136,6 +137,10 @@ def run_solver(puzzle, kb):
     elif ALGORITHM == "forward_chaining":
         is_complete, solution, domains, stats = forward_chaining_solve(puzzle, kb)
         return solution if is_complete else None, stats
+
+    elif ALGORITHM == "backward_chaining":
+        solution, stats = backward_chaining_solve(puzzle, kb)
+        return solution, stats
 
     elif ALGORITHM == "hybrid":
         solution, stats = solve_hybrid_backtracking_with_fc(puzzle, kb)

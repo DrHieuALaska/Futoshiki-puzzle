@@ -1,176 +1,146 @@
-from FOL.fol_builder import build_fol_symbolic_rules
-
 # ─────────────────────────────────────────────────────────────────────
 # SLD Resolution search
 # ─────────────────────────────────────────────────────────────────────
 
-def _sld_search(N, facts, facts_index, rules, assignment, domains):
+def _sld_search(puzzle, N, facts, rules, assignment):
     """
-    Recursive SLD resolution with domain-based pruning.
- 
+    Recursive SLD resolution.
+
     At each step:
-      1. MRV: pick cell with fewest consistent values
+      1. Find the next unassigned cell
       2. For each candidate value v:
-           - Add Val(i,j,v) to facts tentatively
-           - Update domains of remaining cells incrementally
-           - If any domain becomes empty -> dead end, skip
-           - Else recurse
+           - QUERY: is Val(i, j, v) consistent with current KB?
+           - Prove consistency by attempting to derive FALSE
+           - If FALSE not derivable -> safe -> assign and recurse
     """
-    if not domains:
-        return assignment
- 
-    # MRV: pick cell with smallest domain
-    (i, j) = min(domains, key=lambda c: len(domains[c]))
-    candidates = domains[(i, j)]
- 
-    if not candidates:
-        return None  # dead end
- 
-    for v in candidates:
-        new_fact  = ("Val", i, j, v)
-        new_facts = facts | {new_fact}
-        new_fi    = _extend_index(facts_index, new_fact)
- 
-        # Incrementally update domains — detect conflict early
-        new_domains, conflict = _update_domains(
-            domains, i, j, v, new_facts, new_fi, rules
-        )
- 
-        if conflict:
-            continue
- 
-        new_assignment = {**assignment, (i, j): v}
-        result = _sld_search(N, new_facts, new_fi, rules, new_assignment, new_domains)
-        if result is not None:
-            return result
- 
-    return None
+    cell = _next_unassigned(N, assignment)
+    if cell is None:
+        return assignment  
 
-# ─────────────────────────────────────────────────────────────────────
-# Domain management
-# ─────────────────────────────────────────────────────────────────────
- 
-def _compute_domain(i, j, N, facts, facts_index, rules):
-    """
-    Compute consistent values for cell (i,j).
-    v is consistent if adding Val(i,j,v) does NOT derive FALSE.
-    """
-    domain = []
+    i, j = cell
+
     for v in range(1, N + 1):
-        new_fact = ("Val", i, j, v)
-        new_fi   = _extend_index(facts_index, new_fact)
-        if not _derive_false(rules, facts | {new_fact}, new_fi, new_fact):
-            domain.append(v)
-    return domain
- 
- 
-def _update_domains(domains, assigned_i, assigned_j, assigned_v,
-                    new_facts, new_fi, rules):
-    """
-    After assigning Val(assigned_i, assigned_j, assigned_v),
-    filter each remaining cell's domain using incremental check.
- 
-    Returns (new_domains, conflict).
-    conflict = True if any cell's domain wiped out.
-    """
-    new_fact    = ("Val", assigned_i, assigned_j, assigned_v)
-    new_domains = {}
- 
-    for (ci, cj), old_domain in domains.items():
-        if (ci, cj) == (assigned_i, assigned_j):
-            continue
- 
-        filtered = []
-        for cv in old_domain:
-            cand_fact  = ("Val", ci, cj, cv)
-            cand_facts = new_facts | {cand_fact}
-            cand_fi    = _extend_index(new_fi, cand_fact)
+        # Build candidate fact base with this tentative assignment
+        candidate_facts = facts | {("Val", i, j, v)}
 
-            # Check contradiction from new_fact (new assignment)
-            if _derive_false(rules, cand_facts, cand_fi, new_fact):
-                continue
-            # Check contradiction from cand_fact (testing)
-            if _derive_false(rules, cand_facts, cand_fi, cand_fact):
-                continue
+        # QUERY: backward chain to check if FALSE is derivable
+        # If NOT derivable -> v is consistent
+        if not _derive_false(rules, candidate_facts):
+            new_assignment = dict(assignment)
+            new_assignment[(i, j)] = v
 
-            filtered.append(cv)
- 
-        if not filtered:
-            return None, True  # conflict
- 
-        new_domains[(ci, cj)] = filtered
- 
-    return new_domains, False
+            result = _sld_search(
+                puzzle, N,
+                candidate_facts,
+                rules,
+                new_assignment
+            )
+            if result is not None:
+                return result
+
+    return None 
+
 
 # ─────────────────────────────────────────────────────────────────────
 # Core: attempt to derive FALSE via SLD resolution
 # ─────────────────────────────────────────────────────────────────────
 
-def _derive_false(rules, facts, facts_index, trigger_fact):
+def _derive_false(rules, facts):
     """
-    Only check rules whose premises contain trigger_fact's predicate.
-    Avoids re-checking rules that cannot possibly fire from the new fact.
+    Try to derive FALSE from the current fact base using the rule set.
+
+    For each rule concluding FALSE:
+      - Try to unify all premises against known facts
+      - If a complete consistent binding exists -> FALSE derived -> True
+
+    Returns:
+        True  if a contradiction is found
+        False if no rule fires
     """
-    trigger_pred = trigger_fact[0]
- 
     for rule in rules:
-        if rule["conclusion"] != ("FALSE",):
-            continue
-        premises = rule["premises"]
-        if not any(p[0] == trigger_pred for p in premises):
-            continue
-        condition = rule.get("condition", lambda b: True)
-        for binding in _unify_all(premises, facts, {}, facts_index):
+        name       = rule["name"]
+        premises   = rule["premises"]
+        condition  = rule.get("condition", lambda b: True)
+        conclusion = rule["conclusion"]
+
+        if conclusion != ("FALSE",):
+            continue  
+
+        # Try to find a binding that satisfies all premises
+        for binding in _unify_all(premises, facts, {}):
             if condition(binding):
-                return True
- 
-    return False
+                return True  
+
+    return False 
+
 
 # ─────────────────────────────────────────────────────────────────────
 # Unification engine
 # ─────────────────────────────────────────────────────────────────────
 
-def _unify_all(premises, facts, bindings, facts_index=None):
+def _unify_all(premises, facts, bindings):
     """
-    Recursively unify premises against facts.
-    Uses facts_index to look up only facts with matching predicate.
-    Yields each complete consistent binding.
+    Recursively unify a list of premise patterns against the fact base.
+    Yields each complete consistent binding dict.
+
+    This is the core of SLD resolution:
+      - Take the first premise
+      - Try to unify it with every fact
+      - Recurse on the remaining premises with updated bindings
     """
     if not premises:
         yield bindings
         return
- 
+
     first, *rest = premises
-    pattern   = _apply_bindings(first, bindings)
-    predicate = pattern[0]
-    candidates = facts_index.get(predicate, []) if facts_index else facts
- 
-    for fact in candidates:
+
+    # Apply current bindings to the pattern before matching
+    pattern = _apply_bindings(first, bindings)
+
+    for fact in facts:
         result = _unify_one(pattern, fact, bindings)
         if result is not None:
-            yield from _unify_all(rest, facts, result, facts_index)
- 
- 
+            yield from _unify_all(rest, facts, result)
+
+
 def _unify_one(pattern, fact, bindings):
-    """Unify one pattern against one ground fact. Returns bindings or None."""
+    """
+    Try to unify a single pattern tuple against a ground fact.
+
+    Rules:
+      - "?x" is a variable -> bind to corresponding fact element
+      - anything else      -> must match exactly
+
+    Returns updated bindings dict, or None if unification fails.
+    """
     if len(pattern) != len(fact):
         return None
+
     b = dict(bindings)
+
     for p, f in zip(pattern, fact):
         if isinstance(p, str) and p.startswith("?"):
             if p in b:
                 if b[p] != f:
                     return None
             else:
-                b[p] = f
+                b[p] = f         
         else:
             if p != f:
-                return None
+                return None     
+
     return b
- 
- 
+
+
 def _apply_bindings(pattern, bindings):
-    """Substitute known bindings into a pattern. Unbound vars stay as-is."""
+    """
+    Substitute known variable bindings into a pattern tuple.
+
+    Example:
+        pattern  = ("Val", "?i", "?j", "?v1")
+        bindings = {"?i": 0, "?j": 0}
+        -> ("Val", 0, 0, "?v1")   ← ?v1 still unbound
+    """
     return tuple(
         bindings.get(p, p) if (isinstance(p, str) and p.startswith("?")) else p
         for p in pattern
@@ -181,20 +151,10 @@ def _apply_bindings(pattern, bindings):
 # Helper
 # ─────────────────────────────────────────────────────────────────────
 
-def _build_index(facts):
-    """Build predicate -> [facts] index from scratch."""
-    index = {}
-    for fact in facts:
-        index.setdefault(fact[0], []).append(fact)
-    return index
- 
- 
-def _extend_index(existing_index, new_fact):
-    """
-    Add one fact to an existing index without rebuilding from scratch.
-    Returns a new index (does not mutate existing_index).
-    """
-    key = new_fact[0]
-    new_index = dict(existing_index)
-    new_index[key] = existing_index.get(key, []) + [new_fact]
-    return new_index
+def _next_unassigned(N, assignment):
+    """Return the first unassigned cell in row-major order."""
+    for i in range(N):
+        for j in range(N):
+            if (i, j) not in assignment:
+                return (i, j)
+    return None
