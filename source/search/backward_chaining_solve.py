@@ -38,7 +38,7 @@ def solve_backward_chaining(puzzle, kb):
     """
     N = puzzle.getN()
     facts = set(kb.get_facts())    
-    rules = kb.get_symbolic_rules()      
+    rules = kb.get_fol_rules()      
 
     # Build initial assignment from Val facts already known (given clues)
     assignment = {}

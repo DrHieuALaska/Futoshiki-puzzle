@@ -6,8 +6,12 @@ def solve_hybrid_backtracking_with_fc(puzzle, kb):
     start_time = time.time()
     tracemalloc.start()
 
+    # Create a stats dictionary to track backtracking events
+    tracking_stats = {"bt_calls": 0}
+
     N = puzzle.getN()
     facts = set(kb.get_facts())
+    rules = kb.get_fol_rules()
 
     # ── build initial domains ────────────────────────────────
     # Start with full domain {1..N} for every cell
@@ -19,32 +23,34 @@ def solve_hybrid_backtracking_with_fc(puzzle, kb):
         if fact[0] == "Val":
             _, i, j, v = fact
             domains[(i, j)] = {v}
-    solution = backtrack_with_fc(puzzle, facts, domains)
+    solution = backtrack_with_fc(puzzle, facts, rules, domains, tracking_stats)
     
     _, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
-    return solution, _make_stats(start_time, peak)
+    return solution, _make_stats(start_time, peak, tracking_stats["bt_calls"])
 
 
-def backtrack_with_fc(puzzle, facts, domains):
+def backtrack_with_fc(puzzle, facts, rules, domains, stats):
     # 1. Deep Copy before mutating — never touch caller's state
     working_domains = copy_domains(domains)
     working_facts = set(facts)
 
     # 2. Forward propagation on working copies
-    valid, working_facts, working_domains = forward_chaining(
-        puzzle, working_facts, working_domains
+    valid, is_complete, working_facts, working_domains = forward_chaining(
+        puzzle, working_facts, rules, working_domains
     )
 
     if not valid:
         return None  # contradiction
 
     # 2. Check if solved
-    if all(len(working_domains[cell]) == 1 for cell in working_domains):
+    if(is_complete):
         solution = puzzle.copy()
         for (i, j), vals in working_domains.items():
             solution.grid[i][j] = next(iter(vals)) # Assign the single value in domain to solution
         return solution
+    
+    stats["bt_calls"] += 1
 
     # 3. Choose cell (MRV)
     cell = select_mrv(working_domains)
@@ -57,7 +63,7 @@ def backtrack_with_fc(puzzle, facts, domains):
         new_domains[(i, j)] = {val}
         candidate_facts = working_facts | {("Val", i, j, val)}
 
-        result = backtrack_with_fc(puzzle, candidate_facts, new_domains)
+        result = backtrack_with_fc(puzzle, candidate_facts, rules, new_domains, stats)
         if result:
             return result 
 
@@ -72,8 +78,9 @@ def select_mrv(domains):
 def copy_domains(domains):
     return {k: set(v) for k, v in domains.items()}
 
-def _make_stats(start_time, peak_bytes):
+def _make_stats(start_time, peak_bytes, bt_count):
     return {
         'time_sec':    round(time.time() - start_time, 6),
         'peak_mem_kb': round(peak_bytes / 1024, 2),
+        'bt_fallbacks':    bt_count  # how many times backtracking was invoked after FC couldn't solve
     }

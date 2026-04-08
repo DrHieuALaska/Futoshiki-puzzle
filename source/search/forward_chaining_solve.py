@@ -8,6 +8,7 @@ def forward_chaining_solve(puzzle, kb):
 
     N = puzzle.getN()
     facts = set(kb.get_facts())
+    rules = kb.get_fol_rules()
 
     # ── Step 1: build initial domains ────────────────────────────────
     # Start with full domain {1..N} for every cell
@@ -21,7 +22,7 @@ def forward_chaining_solve(puzzle, kb):
             domains[(i, j)] = {v}
 
     # Step 2: Forward chaining solve
-    valid, _, _ = forward_chaining(puzzle, facts, domains)
+    valid, is_complete, _, _ = forward_chaining(puzzle, facts, rules, domains)
     if not valid:
         _, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
@@ -29,13 +30,16 @@ def forward_chaining_solve(puzzle, kb):
 
     # Step 3: Check if solved
     solution = puzzle.copy()
-    is_complete = True
 
+    if(not is_complete):
+        _, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        return False, None, None, _make_stats(start_time, peak)   # not fully solved
+    
+    # Fill in solution grid from domains (each should have exactly 1 value)
     for (i, j), domain in domains.items():
         if len(domain) == 1:
             solution.grid[i][j] = next(iter(domain))
-        else:
-            is_complete = False    # FC couldn't determine this cell
 
 
     _, peak = tracemalloc.get_traced_memory()

@@ -2,6 +2,7 @@ import heapq
 import time
 import tracemalloc
 
+from inference.backward_chaining import _derive_false
 from inference.forward_chaining import forward_chaining
 
 
@@ -201,7 +202,9 @@ def solve_astar(puzzle, kb, heuristic='ac3'):
 
     # Initial forward propagation on the initial KB facts, before A* loop.
     facts = set(kb.get_facts())
-    valid, facts, domains_0 = forward_chaining(puzzle, facts, domains_0)
+    rules = kb.get_fol_rules()
+
+    valid, is_finished, facts, domains_0 = forward_chaining(puzzle, facts, rules, domains_0)
 
     if not valid:
         _, peak = tracemalloc.get_traced_memory()
@@ -209,7 +212,7 @@ def solve_astar(puzzle, kb, heuristic='ac3'):
         return None, _make_stats(0, 0, start_time, peak)
 
     # Already solved after initial propagation?
-    if all(len(d) == 1 for d in domains_0.values()):
+    if(is_finished):
         solution = _extract_solution(puzzle, domains_0)
         _, peak  = tracemalloc.get_traced_memory()
         tracemalloc.stop()
@@ -270,9 +273,16 @@ def solve_astar(puzzle, kb, heuristic='ac3'):
             succ_dom[(ci, cj)] = {val}
 
             succ_facts = curr_facts | {("Val", ci, cj, val)}
-            valid, succ_facts, succ_dom = forward_chaining(succ_puz, succ_facts, succ_dom)
-            if not valid:
-                continue   # contradiction: prune
+            is_valid, is_finished, succ_facts, succ_dom = forward_chaining(succ_puz, succ_facts, rules, succ_dom)
+
+            if(not is_valid):
+                continue   # contradiction found → skip successor
+
+            if is_finished:
+                solution = _extract_solution(succ_puz, succ_dom)
+                _, peak  = tracemalloc.get_traced_memory()
+                tracemalloc.stop()
+                return solution, _make_stats(expansions + 1, generated + 1, start_time, peak)
 
             succ_key = _grid_key(succ_puz)
             if succ_key in closed:

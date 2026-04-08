@@ -1,13 +1,11 @@
-from FOL.fol_builder import build_fol_facts, build_fol_grounded_rules, build_fol_symbolic_rules
-from FOL.grounding import ground_kb
-from FOL.cnf_converter import convert_kb_to_cnf
+from FOL.fol_builder import build_fol_facts, build_fol_rules
+from FOL.grounding import ground_to_clauses
 
 
 class KnowledgeBase:
     def __init__(self, puzzle=None):
         self.facts = set()
-        self.grounded_rules = []
-        self.symbolic_rules = []
+        self.fol_rules = []
         self.clauses = []
 
         if puzzle is not None:
@@ -19,14 +17,14 @@ class KnowledgeBase:
 
     def build_from_puzzle(self, puzzle):
         facts = build_fol_facts(puzzle)
-        grounded_rules = build_fol_grounded_rules(puzzle)
-        symbolic_rules = build_fol_symbolic_rules(puzzle)
-        clauses = convert_kb_to_cnf(grounded_rules)
+        fol_rules = build_fol_rules(puzzle)
+        
+        ## Grounding
+        ground_clauses  = ground_to_clauses(facts, fol_rules, puzzle.N)
 
         self.add_facts(facts)
-        self.add_grounded_rules(grounded_rules)
-        self.add_symbolic_rules(symbolic_rules)
-        self.add_clauses(clauses)
+        self.add_fol_rules(fol_rules)
+        self.add_clauses(ground_clauses)
 
     # -------------------------
     # Add methods
@@ -38,18 +36,11 @@ class KnowledgeBase:
     def add_facts(self, facts):
         self.facts.update(facts)
 
-    # Only add grounded rules to KB — symbolic rules are for inference engine to use as templates
-    def add_grounded_rule(self, grounded_rule):
-        self.grounded_rules.append(grounded_rule)
+    def add_fol_rule(self, fol_rule):
+        self.fol_rules.append(fol_rule)
 
-    def add_grounded_rules(self, grounded_rules):
-        self.grounded_rules.extend(grounded_rules)
-
-    def add_symbolic_rule(self, symbolic_rule):
-        self.symbolic_rules.append(symbolic_rule)
-
-    def add_symbolic_rules(self, symbolic_rules):
-        self.symbolic_rules.extend(symbolic_rules)
+    def add_fol_rules(self, fol_rules):
+        self.fol_rules.extend(fol_rules)
 
     def add_clause(self, clause):
         self.clauses.append(clause)
@@ -64,14 +55,11 @@ class KnowledgeBase:
     def get_facts(self):
         return list(self.facts)
 
-    def get_grounded_rules(self):
-        return self.grounded_rules
-
     def get_clauses(self):
         return self.clauses
     
-    def get_symbolic_rules(self):
-        return self.symbolic_rules
+    def get_fol_rules(self):
+        return self.fol_rules
 
     # -------------------------
     # Debug
@@ -80,6 +68,5 @@ class KnowledgeBase:
     def print_summary(self):
         print("Knowledge Base Summary:")
         print(f"Facts: {len(self.facts)}")
-        print(f"Grounded Rules: {len(self.grounded_rules)}")
-        print(f"Symbolic Rules: {len(self.symbolic_rules)}")
+        print(f"FOL Rules: {len(self.fol_rules)}")
         print(f"Clauses: {len(self.clauses)}")

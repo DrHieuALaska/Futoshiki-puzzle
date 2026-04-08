@@ -1,42 +1,18 @@
-def to_cnf_clause(rule):
+def _rule_to_clause(rule):
     """
-    Convert one rule into a CNF clause
-    Input:
-        ("IMPLIES", premises, conclusion)
-    Output:
-        clause: list of literals
+    Convert a grounded implication to a CNF clause.
+
+    P1 ∧ P2 → Q   becomes   ¬P1 ∨ ¬P2 ∨ Q
+    P1 ∧ P2 → FALSE  becomes  ¬P1 ∨ ¬P2
     """
-
-    _, premises, conclusion = rule
-
-    clause = []
+    premises   = rule["premises"]
+    conclusion = rule["conclusion"]
 
     # Negate all premises
-    for p in premises:
-        clause.append(negate(p))
+    clause = tuple(("NOT", p) for p in premises)
 
-    # Add conclusion (if not FALSE)
+    # Add conclusion (unless FALSE — then clause is just negated premises)
     if conclusion != ("FALSE",):
-        clause.append(conclusion)
+        clause += (conclusion,)
 
     return clause
-
-
-def negate(predicate):
-    """
-    Represent negation as ("NOT", predicate)
-    """
-    return ("NOT", predicate)
-
-
-def convert_kb_to_cnf(rules):
-    """
-    Convert all rules into CNF clauses
-    """
-    clauses = []
-
-    for rule in rules:
-        clause = to_cnf_clause(rule)
-        clauses.append(clause)
-
-    return clauses
