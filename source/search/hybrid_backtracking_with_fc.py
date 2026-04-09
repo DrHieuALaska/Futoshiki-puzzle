@@ -37,7 +37,7 @@ def backtrack_with_fc(puzzle, facts, rules, domains, stats):
 
     # 2. Forward propagation on working copies
     valid, is_complete, working_facts, working_domains = forward_chaining(
-        puzzle, working_facts, rules, working_domains
+        working_facts, rules, working_domains
     )
 
     if not valid:

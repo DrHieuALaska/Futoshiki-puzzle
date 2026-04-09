@@ -203,7 +203,7 @@ def solve_astar(puzzle, kb, heuristic='ac3'):
     facts = set(kb.get_facts())
     rules = kb.get_fol_rules()
 
-    valid, is_finished, facts, domains_0 = forward_chaining(puzzle, facts, rules, domains_0)
+    valid, is_finished, facts, domains_0 = forward_chaining(facts, rules, domains_0)
 
     if not valid:
         _, peak = tracemalloc.get_traced_memory()
@@ -270,7 +270,7 @@ def solve_astar(puzzle, kb, heuristic='ac3'):
             succ_dom[(ci, cj)] = {val}
             succ_facts = curr_facts | {("Val", ci, cj, val)}
             
-            is_valid, is_finished, succ_facts, succ_dom = forward_chaining(curr_puz, succ_facts, rules, succ_dom)
+            is_valid, is_finished, succ_facts, succ_dom = forward_chaining(succ_facts, rules, succ_dom)
 
             if(not is_valid):
                 continue   # contradiction found → skip successor

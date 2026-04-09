@@ -22,7 +22,7 @@ def forward_chaining_solve(puzzle, kb):
             domains[(i, j)] = {v}
 
     # Step 2: Forward chaining solve
-    valid, is_complete, _, _ = forward_chaining(puzzle, facts, rules, domains)
+    valid, is_complete, _, _ = forward_chaining(facts, rules, domains)
     if not valid:
         _, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()

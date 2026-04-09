@@ -1,4 +1,4 @@
-def forward_chaining(puzzle, facts, rules, domains):
+def forward_chaining(facts, rules, domains):
     """
     FOL Forward Chaining via Modus Ponens.
 

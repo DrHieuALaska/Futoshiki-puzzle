@@ -204,7 +204,7 @@ def solve_astar(puzzle, kb, heuristic='ac3'):
     facts = set(kb.get_facts())
     rules = kb.get_fol_rules()
 
-    valid, is_finished, facts, domains_0 = forward_chaining(puzzle, facts, rules, domains_0)
+    valid, is_finished, facts, domains_0 = forward_chaining(facts, rules, domains_0)
 
     if not valid:
         _, peak = tracemalloc.get_traced_memory()
@@ -267,17 +267,22 @@ def solve_astar(puzzle, kb, heuristic='ac3'):
             # OPT #4: skip redundant is_valid_assignment — forward_propagate
             # catches all contradictions including single-cell violations.
 
-            succ_puz              = curr_puz.copy()
-            succ_puz.grid[ci][cj] = val
             succ_dom           = _copy_domains(curr_dom)
             succ_dom[(ci, cj)] = {val}
             succ_history = curr_history + [('assign', ci, cj, val)]
 
             succ_facts = curr_facts | {("Val", ci, cj, val)}
-            is_valid, is_finished, succ_facts, succ_dom = forward_chaining(succ_puz, succ_facts, rules, succ_dom)
+            is_valid, is_finished, succ_facts, succ_dom = forward_chaining(succ_facts, rules, succ_dom)
 
             if(not is_valid):
                 continue   # contradiction found → skip successor
+            
+            succ_puz = curr_puz.copy()
+            for (r, c), vals in succ_dom.items():
+                if len(vals) == 1:
+                    succ_puz.grid[r][c] = next(iter(vals))
+                else:
+                    succ_puz.grid[r][c] = 0    # still unresolved
 
             if is_finished:
                 solution, history = _extract_solution(succ_puz, succ_dom, succ_history)
