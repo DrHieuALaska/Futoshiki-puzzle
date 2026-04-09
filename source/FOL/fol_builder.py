@@ -28,7 +28,7 @@ def build_fol_facts(puzzle):
         for j in range(N):
             val = puzzle.grid[i][j]
             if val != 0:
-                facts.append(Given(i, j, val))
+                # facts.append(Given(i, j, val))
                 facts.append(Val(i, j, val))
 
     # -------------------------
@@ -60,6 +60,9 @@ def build_fol_rules(puzzle):
 
     # RULES: use variable placeholders — grounding happens at inference time
     rules = [
+        # A1: at least one value per cell
+        # ∀ i,j: Given(i,j,v1) ∨ Given(i,j,v2) ∨ ... ∨ Given(i,j,vN) Handle while searching, not as a rule
+        
         # A2: at most one value per cell
         # ∀ i,j,v1,v2 (v1≠v2): Val(i,j,v1) ∧ Val(i,j,v2) → FALSE
         {

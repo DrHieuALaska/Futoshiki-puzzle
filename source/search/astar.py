@@ -2,7 +2,6 @@ import heapq
 import time
 import tracemalloc
 
-from inference.backward_chaining import _derive_false
 from inference.forward_chaining import forward_chaining
 
 
