@@ -278,6 +278,12 @@ def solve_astar(puzzle, kb, heuristic='ac3'):
             if(not is_valid):
                 continue   # contradiction found → skip successor
 
+            for (r, c), vals in succ_dom.items():
+                if len(vals) == 1:
+                    succ_puz.grid[r][c] = next(iter(vals))
+                else:
+                    succ_puz.grid[r][c] = 0    # still unresolved
+
             if is_finished:
                 solution = _extract_solution(succ_puz, succ_dom)
                 _, peak  = tracemalloc.get_traced_memory()

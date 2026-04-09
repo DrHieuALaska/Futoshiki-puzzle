@@ -60,6 +60,7 @@ def forward_chaining(puzzle, facts, rules, domains):
         if len(domain) != 1:
             is_complete = False
             is_valid = True   # no contradictions found, but not fully solved
+            return is_valid, is_complete, facts, domains
 
     return is_valid, is_complete, facts, domains
 
