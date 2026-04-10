@@ -1,4 +1,4 @@
-def forward_chaining(facts, rules, domains):
+def forward_chaining(facts, rules, domains, history=None):
     """
     FOL Forward Chaining via Modus Ponens.
 
@@ -9,6 +9,8 @@ def forward_chaining(facts, rules, domains):
         - If domain collapses to 1 → derive Val(i,j,v) as new fact
         - If domain collapses to 0 → contradiction
     """
+    if history is None:
+        history = []
     facts   = set(facts)
     changed = True
 
@@ -37,6 +39,7 @@ def forward_chaining(facts, rules, domains):
                     to_remove.add(v)
 
             if to_remove:
+                history.append(('eliminate', i, j, v))
                 domains[(i, j)] -= to_remove
                 changed = True
 
@@ -54,6 +57,7 @@ def forward_chaining(facts, rules, domains):
                 if val_fact not in facts:
                     facts.add(val_fact)
                     facts_index = _extend_index(facts_index, val_fact)
+                    history.append(('derive', i, j, v))
                     changed = True              # new fact → re-run rules
 
     for (i, j), domain in domains.items():

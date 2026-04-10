@@ -56,6 +56,7 @@ def solve_backward_chaining(puzzle, kb, history):
     for (i, j), v in result.items():
         if puzzle.grid[i][j] == 0:  # Only add to history if not given
             history.append(('assign', i, j, v))
+            print(f"Assign Val({i}, {j}) = {v}")
         solution.grid[i][j] = v
     return solution
 

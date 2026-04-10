@@ -2,7 +2,7 @@
 # SLD Resolution search
 # ─────────────────────────────────────────────────────────────────────
 
-def _sld_search(puzzle, N, facts, rules, assignment):
+def _sld_search(puzzle, N, facts, rules, assignment, history=None):
     """
     Recursive SLD resolution.
 
@@ -13,22 +13,27 @@ def _sld_search(puzzle, N, facts, rules, assignment):
            - Prove consistency by attempting to derive FALSE
            - If FALSE not derivable -> safe -> assign and recurse
     """
+    if history is None:
+        history = []
+
     cell = _next_unassigned(N, assignment)
     if cell is None:
         return assignment  
 
     i, j = cell
-
+    print(f"Querying Val({i}, {j}) = ?")
     for v in range(1, N + 1):
         # Build candidate fact base with this tentative assignment
         candidate_facts = facts | {("Val", i, j, v)}
-
+        history.append(('try', i, j, v))
+        print(f"Trying Val({i}, {j}) = {v}")
         # QUERY: backward chain to check if FALSE is derivable
         # If NOT derivable -> v is consistent
         if not _derive_false(rules, candidate_facts):
             new_assignment = dict(assignment)
             new_assignment[(i, j)] = v
-
+            history.append(('assign', i, j, v))
+            print(f"No contradiction found for Val({i}, {j}) = {v}")
             result = _sld_search(
                 puzzle, N,
                 candidate_facts,
@@ -37,7 +42,11 @@ def _sld_search(puzzle, N, facts, rules, assignment):
             )
             if result is not None:
                 return result
-
+            else:
+                history.append(('undo', i, j, v))
+                print(f"Undo Val({i}, {j}) = {v}")
+        else:
+            print(f"Contradiction found for Val({i}, {j}) = {v}")
     return None 
 
 
