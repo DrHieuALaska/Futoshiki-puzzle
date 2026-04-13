@@ -12,11 +12,11 @@ def brute_force(puzzle):
         if idx == len(cells): return True
         r, c = cells[idx]
         for val in puzzle.domain(): # order: 1,2,...N
-            if puzzle.is_valid_assignment(r, c, val):
-                puzzle.set(r, c, val)
+            if copyPuzzle.is_valid_assignment(r, c, val):
+                copyPuzzle.set(r, c, val)
                 history.append(('assign', r, c, val))
                 if solve(cells, idx+1): return True
-                puzzle.unset(r, c)
+                copyPuzzle.unset(r, c)
                 history.append(('clear', r, c, val))
         return False
     

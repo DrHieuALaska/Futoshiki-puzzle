@@ -79,7 +79,9 @@ class FutoshikiApp(tk.Tk):
         self.history = []
         self.replay_index = 0
         self.speed_var = tk.StringVar(value="1x")
+        self.heuristic_var = tk.StringVar(value="ac3")
 
+        self.algo_var.trace_add("write", lambda *_: self._update_heuristic_visibility())
         self._build_ui()
 
     # ── UI construction ──────────────────────────────────────
@@ -128,15 +130,28 @@ class FutoshikiApp(tk.Tk):
                                         font=FONT_UI, relief="flat", bd=0, padx=14, pady=7, cursor="hand2")
         self.speed_menu.menu = tk.Menu(self.speed_menu, tearoff=0, bg=PANEL_BG, fg=BTN_FG,
                                        activebackground=BTN_ACT, activeforeground=ACCENT2)
-        for speed in ["0.5x", "1x", "2x", "4x"]:
+        for speed in ["0.5x", "1x", "2x", "4x", "8x"]:
             self.speed_menu.menu.add_radiobutton(label=speed, variable=self.speed_var, value=speed)
         self.speed_menu["menu"] = self.speed_menu.menu
         self.speed_menu.pack(side="left", padx=4)
         self.speed_menu.bind("<Enter>", lambda e: self.speed_menu.config(bg=BTN_ACT))
         self.speed_menu.bind("<Leave>", lambda e: self.speed_menu.config(bg=BTN_BG))
 
+        # Heuristic selector for A*
+        self.heuristic_menu = tk.Menubutton(hbtn, textvariable=self.heuristic_var, bg=BTN_BG, fg=BTN_FG,
+                                            activebackground=BTN_ACT, activeforeground=BTN_FG,
+                                            font=FONT_UI, relief="flat", bd=0, padx=14, pady=7, cursor="hand2")
+        self.heuristic_menu.menu = tk.Menu(self.heuristic_menu, tearoff=0, bg=PANEL_BG, fg=BTN_FG,
+                                           activebackground=BTN_ACT, activeforeground=ACCENT2)
+        for heur in ["ac3", "remaining_unassigned_cells", "inequality_chains"]:
+            self.heuristic_menu.menu.add_radiobutton(label=heur, variable=self.heuristic_var, value=heur)
+        self.heuristic_menu["menu"] = self.heuristic_menu.menu
+        self.heuristic_menu.bind("<Enter>", lambda e: self.heuristic_menu.config(bg=BTN_ACT))
+        self.heuristic_menu.bind("<Leave>", lambda e: self.heuristic_menu.config(bg=BTN_BG))
+
         self.random_btn = self._btn(hbtn, "🎲 Random Puzzle", self._load_random, accent=True)
         self.random_btn.pack(side="left", padx=4, pady=10)
+        self._update_heuristic_visibility()
 
         self.load_btn = self._btn(hbtn, "📁 Load File", self._load_file)
         self.load_btn.pack(side="left", padx=4, pady=10)
@@ -170,7 +185,7 @@ class FutoshikiApp(tk.Tk):
                  bg=BG, fg="#555875").pack(side="left", padx=(0, 10))
 
         self.algo_buttons = []
-        for name in ["A*", "Backtracking", "Brute Force", "Forward Chaining", "Backward Chaining", "Hybrid"]:
+        for name in ["A*", "Backtracking", "Brute Force", "Backward Chaining", "Hybrid"]:
             rb = tk.Radiobutton(
                 algo_bar, text=name, variable=self.algo_var, value=name,
                 bg=BG, fg=BTN_FG, selectcolor=BTN_SEL,
@@ -286,6 +301,14 @@ class FutoshikiApp(tk.Tk):
     def _reset_stats(self):
         for key in self.stat_vars:
             self.stat_vars[key].set("—")
+
+    def _update_heuristic_visibility(self):
+        if self.algo_var.get() == "A*":
+            if not self.heuristic_menu.winfo_ismapped():
+                self.heuristic_menu.pack(side="left", padx=4, before=self.random_btn)
+        else:
+            if self.heuristic_menu.winfo_ismapped():
+                self.heuristic_menu.pack_forget()
 
     def _update_stats(self, algo, size, status, stats):
         self.stat_vars["algo_disp"].set(algo)
@@ -606,14 +629,11 @@ class FutoshikiApp(tk.Tk):
 
         try:
             if algo == "A*":
-                solution, stats, history = solve_astar(p, kb, heuristic="ac3")
+                solution, stats, history = solve_astar(p, kb, heuristic=self.heuristic_var.get())
             elif algo == "Backtracking":
                 solution, stats, history = solve_backtracking(p)
             elif algo == "Brute Force":
                 solution, stats, history = brute_force(p)
-            elif algo == "Forward Chaining":
-                is_complete, solution, domains, stats, history = forward_chaining_solve(p, kb)
-                if not is_complete: solution = None
             elif algo == "Backward Chaining":
                 solution, stats, history = backward_chaining_solve(p, kb)
             elif algo == "Hybrid":
@@ -663,9 +683,9 @@ class FutoshikiApp(tk.Tk):
         size_str = f"{self.puzzle.N}×{self.puzzle.N}" if self.puzzle else "—"
         if solution is None:
             self._set_status("❌  No solution found", "error")
-            self.time_var.set("")
             self._update_stats(algo, size_str, "No Solution", stats)
             messagebox.showinfo("Result", "No solution could be found for this puzzle.")
+            self.time_var.set("")
             return
 
         self._update_all_cells(solution)
