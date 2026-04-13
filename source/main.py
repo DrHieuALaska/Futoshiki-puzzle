@@ -21,7 +21,7 @@ from inference.sat_checkValid_model import validate_solution
 
 ALGORITHM = "astar"   # options: backtracking, astar, bruteforce, forward_chaining, backward_chaining, hybrid_backtracking_with_fc
 DIFFICULTY = "hard"   # easy, medium, hard
-SIZE = "6x6"          # 4x4 → 5x5, 6x6, 7x7, 8x8, 9x9
+SIZE = "7x7"          # 4x4 → 5x5, 6x6, 7x7, 8x8, 9x9
 TEST_IDS = ["01"]  # which files to run
 HEURISTIC = "ac3"     # for A* only
 

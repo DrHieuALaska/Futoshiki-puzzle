@@ -32,9 +32,15 @@ def forward_chaining_solve(puzzle, kb):
     solution = puzzle.copy()
 
     if(not is_complete):
+        # Fill in the so far solution grid from domains (mark unsolved cells as 0)
+        for(i, j), domain in domains.items():
+            if len(domain) != 1:
+                solution.grid[i][j] = 0   # mark unsolved cells as 0
+            else:
+                solution.grid[i][j] = next(iter(domain))
         _, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
-        return False, None, None, _make_stats(start_time, peak)   # not fully solved
+        return False, solution, None, _make_stats(start_time, peak)   # not fully solved
     
     # Fill in solution grid from domains (each should have exactly 1 value)
     for (i, j), domain in domains.items():
