@@ -40,7 +40,7 @@ def forward_chaining_solve(puzzle, kb):
                 solution.grid[i][j] = next(iter(domain))
         _, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
-        return False, solution, None, _make_stats(start_time, peak)   # not fully solved
+        return False, solution, domains, _make_stats(start_time, peak)   # not fully solved
     
     # Fill in solution grid from domains (each should have exactly 1 value)
     for (i, j), domain in domains.items():

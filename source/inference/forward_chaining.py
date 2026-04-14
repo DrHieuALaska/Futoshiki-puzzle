@@ -18,6 +18,11 @@ def forward_chaining(facts, rules, domains, history=None):
     is_complete = True
     is_valid    = True
 
+    if _facts_have_contradiction(rules, facts, facts_index):
+        is_valid = False
+        is_complete = False
+        return is_valid, is_complete, facts, domains
+
     while changed:
         changed = False
 
@@ -39,7 +44,8 @@ def forward_chaining(facts, rules, domains, history=None):
                     to_remove.add(v)
 
             if to_remove:
-                history.append(('eliminate', i, j, v))
+                for removed_v in to_remove:
+                    history.append(('clear domain', i, j, removed_v))
                 domains[(i, j)] -= to_remove
                 changed = True
 
@@ -57,8 +63,17 @@ def forward_chaining(facts, rules, domains, history=None):
                 if val_fact not in facts:
                     facts.add(val_fact)
                     facts_index = _extend_index(facts_index, val_fact)
-                    history.append(('derive', i, j, v))
+                    if _any_rule_fires_false(rules, facts, facts_index, val_fact):
+                        is_valid = False
+                        is_complete = False
+                        return is_valid, is_complete, facts, domains
+                    history.append(('assign', i, j, v))
                     changed = True              # new fact → re-run rules
+
+    if _facts_have_contradiction(rules, facts, facts_index):
+        is_valid = False
+        is_complete = False
+        return is_valid, is_complete, facts, domains
 
     for (i, j), domain in domains.items():
         if len(domain) != 1:
@@ -68,6 +83,11 @@ def forward_chaining(facts, rules, domains, history=None):
 
     return is_valid, is_complete, facts, domains
 
+def _facts_have_contradiction(rules, facts, facts_index):
+    for fact in facts:
+        if _any_rule_fires_false(rules, facts, facts_index, fact):
+            return True
+    return False
 
 def _any_rule_fires_false(rules, facts, facts_index, trigger):
     """

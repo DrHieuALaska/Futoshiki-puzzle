@@ -15,48 +15,44 @@ from FOL.kb import KnowledgeBase
 from inference.sat_checkValid_model import validate_solution
 
 
-# ============================================================
-# USER CONFIG
-# ============================================================
 
-ALGORITHM = "astar"   # options: backtracking, astar, bruteforce, forward_chaining, backward_chaining, hybrid_backtracking_with_fc
-DIFFICULTY = "hard"   # easy, medium, hard
-SIZE = "7x7"          # 4x4 → 5x5, 6x6, 7x7, 8x8, 9x9
-TEST_IDS = ["01"]  # which files to run
-HEURISTIC = "ac3"     # for A* only
+ALGORITHM  = "hybrid_backtracking_with_fc"     # backtracking | astar | bruteforce |
+                          # forward_chaining | backward_chaining |
+                          # hybrid_backtracking_with_fc
 
+DIFFICULTY = "easy"       # easy | medium | hard
+SIZE       = "4x4"        # 4x4 | 5x5 | 6x6 | 7x7 | 8x8 | 9x9
+TEST_IDS   = ["01"]       # which input files to run
 
-INPUT_ROOT = "Inputs"
+# ── A* only settings ─────────────────────────────────────────
+# heuristic : remaining_cells | inequality_chains | combined
+# pruning   : fc | ac3
+HEURISTIC = "combined"
+PRUNING   = "fc"
+
+INPUT_ROOT  = "Inputs"
 OUTPUT_ROOT = "Outputs"
 
 
-# ============================================================
-# SOLVER DISPATCH
-# ============================================================
-
 def run_solver(puzzle, kb):
     if ALGORITHM == "astar":
-        return solve_astar(puzzle, kb, heuristic=HEURISTIC)
+        return solve_astar(puzzle, kb, heuristic=HEURISTIC, pruning=PRUNING)
 
     elif ALGORITHM == "backtracking":
-        solution, stats = solve_backtracking(puzzle)
-        return solution, stats
+        return solve_backtracking(puzzle)
 
     elif ALGORITHM == "bruteforce":
-        solution, stats = brute_force(puzzle)
-        return solution, stats
+        return brute_force(puzzle)
 
     elif ALGORITHM == "forward_chaining":
         is_complete, solution, domains, stats = forward_chaining_solve(puzzle, kb)
         return solution if is_complete else None, stats
 
     elif ALGORITHM == "backward_chaining":
-        solution, stats = backward_chaining_solve(puzzle, kb)
-        return solution, stats
+        return backward_chaining_solve(puzzle, kb)
 
     elif ALGORITHM == "hybrid_backtracking_with_fc":
-        solution, stats = solve_hybrid_backtracking_with_fc(puzzle, kb)
-        return solution, stats
+        return solve_hybrid_backtracking_with_fc(puzzle, kb)
 
     else:
         raise ValueError(f"Unknown algorithm: {ALGORITHM}")
@@ -67,17 +63,20 @@ def run_solver(puzzle, kb):
 # ============================================================
 
 def run_one(test_id):
-    input_file = os.path.join(INPUT_ROOT, DIFFICULTY, SIZE, f"input-{test_id}.txt")
+    input_file  = os.path.join(INPUT_ROOT,  DIFFICULTY, SIZE, f"input-{test_id}.txt")
     output_file = os.path.join(OUTPUT_ROOT, DIFFICULTY, SIZE, f"output-{test_id}.txt")
 
     print("=" * 60)
     print(f"TEST CASE : {test_id} ({DIFFICULTY}/{SIZE})")
     print(f"Algorithm : {ALGORITHM}")
+    if ALGORITHM == "astar":
+        print(f"Heuristic : {HEURISTIC}")
+        print(f"Pruning   : {PRUNING}")
     print(f"Input     : {input_file}")
     print(f"Output    : {output_file}")
     print("=" * 60)
 
-    # ── Parse ─────────────────────────────
+    # ── Parse ─────────────────────────────────────────────────
     puzzle = parse_input(input_file)
     print("=== INPUT PUZZLE ===")
     print(puzzle)
@@ -85,42 +84,43 @@ def run_one(test_id):
 
     kb = KnowledgeBase(puzzle)
 
-    # ── Solve ─────────────────────────────
+    # ── Solve ─────────────────────────────────────────────────
     solution, stats = run_solver(puzzle, kb)
 
     if solution is None:
-        print("❌ No solution found.\n")
+        print("No solution found.\n")
         return
 
-    # ── Print ─────────────────────────────
+    # ── Print solution ────────────────────────────────────────
     print("=== SOLUTION ===")
     print(solution)
+    print()
 
+    # ── Print stats ───────────────────────────────────────────
     if stats:
-        if(ALGORITHM == "astar"):
+        if ALGORITHM == "astar":
             print(f"Expansions : {stats.get('expansions', '-')}")
             print(f"Generated  : {stats.get('generated', '-')}")
-        if(ALGORITHM == "hybrid_backtracking_with_fc"):
-            print(f"Backtracking Fallbacks: {stats.get('bt_fallbacks', '-')}")
+        if ALGORITHM == "hybrid_backtracking_with_fc":
+            print(f"BT Fallbacks: {stats.get('bt_fallbacks', '-')}")
         print(f"Time (s)   : {stats.get('time_sec', '-')}")
         print(f"Memory (KB): {stats.get('peak_mem_kb', '-')}")
     print()
 
-    # ── Write output ──────────────────────
+    # ── Write output ──────────────────────────────────────────
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     write_output(solution, output_file)
 
-    # ── Check solution validity ───────────
+    # ── Validate ──────────────────────────────────────────────
     is_valid, violations = validate_solution(kb, solution.grid)
     if is_valid:
-        print("✅ Solution is valid.")
+        print("Solution is valid.")
     else:
-        print("❌ Solution is invalid.")
-        print("Violations:")
+        print("Solution is invalid.")
         for clause in violations:
             print(f"  - {clause}")
 
-    print(f"✅ Output written to {output_file}\n")
+    print(f"Output written to {output_file}\n")
 
 
 # ============================================================

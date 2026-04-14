@@ -23,7 +23,7 @@ def forward_chaining_solve(puzzle, kb):
             domains[(i, j)] = {v}
 
     # Step 2: Forward chaining solve
-    valid, is_complete, _, _ = forward_chaining(facts, rules, domains, history)
+    valid, is_complete, facts, domains = forward_chaining(facts, rules, domains, history)
     if not valid:
         _, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
@@ -33,9 +33,14 @@ def forward_chaining_solve(puzzle, kb):
     solution = puzzle.copy()
 
     if(not is_complete):
+        for(i, j), domain in domains.items():
+            if len(domain) != 1:
+                solution.grid[i][j] = 0
+            else:
+                solution.grid[i][j] = next(iter(domain))
         _, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
-        return False, None, None, _make_stats(start_time, peak), history   # not fully solved
+        return False, solution, domains, _make_stats(start_time, peak), history
     
     # Fill in solution grid from domains (each should have exactly 1 value)
     for (i, j), domain in domains.items():
