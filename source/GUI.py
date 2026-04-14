@@ -49,6 +49,7 @@ from GUI_search.back_tracking import solve_backtracking
 from GUI_search.forward_chaining_solve import forward_chaining_solve
 from GUI_search.astar import solve_astar
 from GUI_search.backward_chaining_solve import backward_chaining_solve
+from GUI_search.forward_chaining_solve import forward_chaining_solve
 from GUI_search.brute_force import brute_force
 from GUI_search.hybrid_backtracking_with_fc import solve_hybrid_backtracking_with_fc
 from FOL.kb import KnowledgeBase
@@ -79,9 +80,11 @@ class FutoshikiApp(tk.Tk):
         self.history = []
         self.replay_index = 0
         self.speed_var = tk.StringVar(value="1x")
-        self.heuristic_var = tk.StringVar(value="ac3")
+        self.heuristic_var = tk.StringVar(value="combined")
+        self.pruning_var = tk.StringVar(value="fc")
 
         self.algo_var.trace_add("write", lambda *_: self._update_heuristic_visibility())
+        self.algo_var.trace_add("write", lambda *_: self._update_pruning_visibility())
         self._build_ui()
 
     # ── UI construction ──────────────────────────────────────
@@ -143,15 +146,28 @@ class FutoshikiApp(tk.Tk):
                                             font=FONT_UI, relief="flat", bd=0, padx=14, pady=7, cursor="hand2")
         self.heuristic_menu.menu = tk.Menu(self.heuristic_menu, tearoff=0, bg=PANEL_BG, fg=BTN_FG,
                                            activebackground=BTN_ACT, activeforeground=ACCENT2)
-        for heur in ["ac3", "remaining_unassigned_cells", "inequality_chains"]:
+        for heur in ["combined", "remaining_cells", "inequality_chains"]:
             self.heuristic_menu.menu.add_radiobutton(label=heur, variable=self.heuristic_var, value=heur)
         self.heuristic_menu["menu"] = self.heuristic_menu.menu
         self.heuristic_menu.bind("<Enter>", lambda e: self.heuristic_menu.config(bg=BTN_ACT))
         self.heuristic_menu.bind("<Leave>", lambda e: self.heuristic_menu.config(bg=BTN_BG))
 
+        # Pruning selector for A*
+        self.pruning_menu = tk.Menubutton(hbtn, textvariable=self.pruning_var, bg=BTN_BG, fg=BTN_FG,
+                                            activebackground=BTN_ACT, activeforeground=BTN_FG,
+                                            font=FONT_UI, relief="flat", bd=0, padx=14, pady=7, cursor="hand2")
+        self.pruning_menu.menu = tk.Menu(self.pruning_menu, tearoff=0, bg=PANEL_BG, fg=BTN_FG,
+                                           activebackground=BTN_ACT, activeforeground=ACCENT2)
+        for prun in ["fc", "ac3"]:
+            self.pruning_menu.menu.add_radiobutton(label=prun, variable=self.pruning_var, value=prun)
+        self.pruning_menu["menu"] = self.pruning_menu.menu
+        self.pruning_menu.bind("<Enter>", lambda e: self.pruning_menu.config(bg=BTN_ACT))
+        self.pruning_menu.bind("<Leave>", lambda e: self.pruning_menu.config(bg=BTN_BG))    
+
         self.random_btn = self._btn(hbtn, "🎲 Random Puzzle", self._load_random, accent=True)
         self.random_btn.pack(side="left", padx=4, pady=10)
         self._update_heuristic_visibility()
+        self._update_pruning_visibility()
 
         self.load_btn = self._btn(hbtn, "📁 Load File", self._load_file)
         self.load_btn.pack(side="left", padx=4, pady=10)
@@ -185,7 +201,7 @@ class FutoshikiApp(tk.Tk):
                  bg=BG, fg="#555875").pack(side="left", padx=(0, 10))
 
         self.algo_buttons = []
-        for name in ["A*", "Backtracking", "Brute Force", "Backward Chaining", "Hybrid"]:
+        for name in ["A*", "Backtracking", "Brute Force", "Backward Chaining", "Forward Chaining", "Hybrid"]:
             rb = tk.Radiobutton(
                 algo_bar, text=name, variable=self.algo_var, value=name,
                 bg=BG, fg=BTN_FG, selectcolor=BTN_SEL,
@@ -309,6 +325,14 @@ class FutoshikiApp(tk.Tk):
         else:
             if self.heuristic_menu.winfo_ismapped():
                 self.heuristic_menu.pack_forget()
+
+    def _update_pruning_visibility(self):
+        if self.algo_var.get() == "A*":
+            if not self.pruning_menu.winfo_ismapped():
+                self.pruning_menu.pack(side="left", padx=4, before=self.random_btn)
+        else:
+            if self.pruning_menu.winfo_ismapped():
+                self.pruning_menu.pack_forget()
 
     def _update_stats(self, algo, size, status, stats):
         self.stat_vars["algo_disp"].set(algo)
@@ -629,13 +653,27 @@ class FutoshikiApp(tk.Tk):
 
         try:
             if algo == "A*":
-                solution, stats, history = solve_astar(p, kb, heuristic=self.heuristic_var.get())
+                solution, stats, history = solve_astar(p, kb, heuristic=self.heuristic_var.get(), pruning=self.pruning_var.get())
             elif algo == "Backtracking":
                 solution, stats, history = solve_backtracking(p)
             elif algo == "Brute Force":
                 solution, stats, history = brute_force(p)
             elif algo == "Backward Chaining":
                 solution, stats, history = backward_chaining_solve(p, kb)
+            elif algo == "Forward Chaining":
+                is_complete, solution, domains, stats, history = forward_chaining_solve(p, kb)
+                elapsed = time.time() - t0
+
+                if solution is None:
+                    self.after(0, self._show_fc_result, "contradiction", None, elapsed, algo, stats, history)
+                elif not is_complete:
+                    self.after(0, self._show_fc_result, "partial", solution, elapsed, algo, stats, history)
+                else:
+                    self.after(0, self._show_result, solution, elapsed, algo, stats, history)
+
+                self.solving = False   # 🔥 THÊM DÒNG NÀY
+                self.after(0, self._enable_buttons)
+                return
             elif algo == "Hybrid":
                 solution, stats, history = solve_hybrid_backtracking_with_fc(p, kb)
         except Exception as e:
@@ -679,6 +717,24 @@ class FutoshikiApp(tk.Tk):
             color = STEP_FG if mode == "step" else SOLVED_FG
             self.cell_wdgs[i][j].config(bg=CELL_BG, fg=color)
 
+    def _update_history_text(self, history):
+        if not self.history_text:
+            return
+        self.history_text.config(state="normal")
+        self.history_text.delete(1.0, tk.END)
+        if history:
+            for step in history:
+                action, r, c, val = step
+                if action == 'assign':
+                    self.history_text.insert(tk.END, f"assign ({r},{c}) = {val}\n")
+                elif action == 'clear':
+                    self.history_text.insert(tk.END, f"clear ({r},{c})\n")
+                else:
+                    self.history_text.insert(tk.END, f"{action} ({r},{c}) = {val}\n")
+        else:
+            self.history_text.insert(tk.END, "No steps recorded\n")
+        self.history_text.config(state="disabled")
+
     def _show_result(self, solution, elapsed, algo, stats, history=None):
         size_str = f"{self.puzzle.N}×{self.puzzle.N}" if self.puzzle else "—"
         if solution is None:
@@ -698,23 +754,34 @@ class FutoshikiApp(tk.Tk):
         self.replay_index = 0
         if self.history:
             self.replay_btn.config(state="normal")
+        self._update_history_text(history)
 
-        # Update history text
-        if self.history_text:
-            self.history_text.config(state="normal")
-            self.history_text.delete(1.0, tk.END)
-            if history:
-                for step in history:
-                    action, r, c, val = step
-                    if action == 'assign':
-                        self.history_text.insert(tk.END, f"assign ({r},{c}) = {val}\n")
-                    elif action == 'clear':
-                        self.history_text.insert(tk.END, f"clear ({r},{c})\n")
-                    else:
-                        self.history_text.insert(tk.END, f"{action} ({r},{c}) = {val}\n")
-            else:
-                self.history_text.insert(tk.END, "No steps recorded (solved instantly or already solved)\n")
-            self.history_text.config(state="disabled")
+    def _show_fc_result(self, case, solution, elapsed, algo, stats, history):
+        size_str = f"{self.puzzle.N}×{self.puzzle.N}" if self.puzzle else "—"
+
+        if case == "contradiction":
+            # Contradiction found — không có gì để hiển thị
+            self._set_status("Contradiction found — no solution", "error")
+            self._update_stats(algo, size_str, "Contradiction", stats)
+            messagebox.showinfo("Result", "Contradiction found.\nThe puzzle has no solution.")
+            self.time_var.set("")
+
+        elif case == "partial":
+            # Không có contradiction, nhưng FC không đủ giải hết
+            self.puzzle = solution
+            self.initial_grid = [row[:] for row in solution.grid]
+            self._update_all_cells(solution)   # hiển thị partial grid (ô 0 sẽ bị để trống)
+            self._set_status("Not fully solved — FC cannot resolve all cells", "warn")
+            self._update_stats(algo, size_str, "Partial", stats)
+            self.time_var.set(f"{elapsed:.4f}s")
+            messagebox.showinfo("Result", "No contradiction found, but Forward Chaining\ncould not resolve all cells.")
+
+            # Vẫn lưu history để replay
+            self.history = history if history else []
+            self.replay_index = 0
+            if self.history:
+                self.replay_btn.config(state="normal")
+            self._update_history_text(history)
 
     def _update_all_cells(self, solution):
         N = self.puzzle.N

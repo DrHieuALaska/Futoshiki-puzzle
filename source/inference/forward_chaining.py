@@ -44,8 +44,8 @@ def forward_chaining(facts, rules, domains, history=None):
                     to_remove.add(v)
 
             if to_remove:
-                for removed_val in sorted(to_remove):
-                    history.append(('eliminate', i, j, removed_val))
+                for removed_v in to_remove:
+                    history.append(('clear domain', i, j, removed_v))
                 domains[(i, j)] -= to_remove
                 changed = True
 
@@ -67,7 +67,7 @@ def forward_chaining(facts, rules, domains, history=None):
                         is_valid = False
                         is_complete = False
                         return is_valid, is_complete, facts, domains
-                    history.append(('derive', i, j, v))
+                    history.append(('assign', i, j, v))
                     changed = True              # new fact → re-run rules
 
     if _facts_have_contradiction(rules, facts, facts_index):
