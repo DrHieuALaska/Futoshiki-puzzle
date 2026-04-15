@@ -63,10 +63,6 @@ def forward_chaining(facts, rules, domains, history=None):
                 if val_fact not in facts:
                     facts.add(val_fact)
                     facts_index = _extend_index(facts_index, val_fact)
-                    if _any_rule_fires_false(rules, facts, facts_index, val_fact):
-                        is_valid = False
-                        is_complete = False
-                        return is_valid, is_complete, facts, domains
                     history.append(('assign', i, j, v))
                     changed = True              # new fact → re-run rules
 
