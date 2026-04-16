@@ -4,8 +4,9 @@ def forward_chaining(facts, rules, domains, history=None):
 
     For each unresolved cell (i,j) and each value v in domain(i,j):
         - Tentatively add Val(i,j,v) to facts
-        - Check if any rule fires FALSE via unification
-        - If yes → v violates a constraint → eliminate from domain
+        - Direct check: does any rule fire FALSE via unification?
+        - Propagation check: cascade Val(i,j,v) through constrained neighbours —
+          if any downstream domain collapses to 0 → v is also invalid
         - If domain collapses to 1 → derive Val(i,j,v) as new fact
         - If domain collapses to 0 → contradiction
     """
@@ -35,12 +36,24 @@ def forward_chaining(facts, rules, domains, history=None):
             for v in list(domains[(i, j)]):
 
                 # Tentatively add Val(i,j,v) and test for contradiction
-                candidate      = ("Val", i, j, v)
-                test_facts     = facts | {candidate}
-                test_index     = _extend_index(facts_index, candidate)
+                candidate  = ("Val", i, j, v)
+                test_facts = facts | {candidate}
+                test_index = _extend_index(facts_index, candidate)
 
-                # Modus Ponens: does any rule fire → FALSE?
+                # Direct Modus Ponens: does any rule fire → FALSE?
                 if _any_rule_fires_false(rules, test_facts, test_index, candidate):
+                    to_remove.add(v)
+                    continue
+
+                # Propagation check: cascade Val(i,j,v) through constrained
+                # neighbours.  A forced neighbour assignment might itself cause
+                # a downstream contradiction invisible to the direct check above.
+                temp_domains = {k: set(d) for k, d in domains.items()}
+                temp_domains[(i, j)] = {v}          # force this cell to v
+                is_prop_valid, _, _ = _propagate_assignment(
+                    rules, test_facts, test_index, temp_domains
+                )
+                if not is_prop_valid:
                     to_remove.add(v)
 
             if to_remove:
@@ -78,6 +91,63 @@ def forward_chaining(facts, rules, domains, history=None):
             return is_valid, is_complete, facts, domains
 
     return is_valid, is_complete, facts, domains
+
+def _propagate_assignment(rules, init_facts, init_index, temp_domains):
+    """
+    Mini-FC propagation scoped to a tentative assignment.
+
+    Starting from init_facts (which already contains the candidate Val fact)
+    and temp_domains (with the assigned cell already forced to one value),
+    iteratively:
+      1. Eliminate every domain value w whose addition fires a rule → FALSE
+         under the current test_facts (FOL Modus Ponens, same as the outer loop).
+      2. When a domain collapses to 1 → add Val(cell, forced) to test_facts
+         (after verifying it doesn't itself contradict test_facts).
+      3. When any domain collapses to 0 → return (False, ...) immediately.
+
+    Returns (is_valid, enriched_facts, enriched_index).
+    enriched_facts contains all forced assignments derived during propagation.
+    """
+    test_facts = set(init_facts)
+    test_index = dict(init_index)
+
+    changed = True
+    while changed:
+        changed = False
+
+        # Eliminate values that produce a contradiction when added
+        for (i, j) in list(temp_domains.keys()):
+            if len(temp_domains[(i, j)]) <= 1:
+                continue
+            to_remove = set()
+            for w in list(temp_domains[(i, j)]):
+                cand = ("Val", i, j, w)
+                tf   = test_facts | {cand}
+                ti   = _extend_index(test_index, cand)
+                if _any_rule_fires_false(rules, tf, ti, cand):
+                    to_remove.add(w)
+            if to_remove:
+                temp_domains[(i, j)] -= to_remove
+                changed = True
+
+        # Domain collapse: contradiction or forced assignment
+        for (i, j), domain in temp_domains.items():
+            if len(domain) == 0:
+                return False, test_facts, test_index   # contradiction
+
+            if len(domain) == 1:
+                w        = next(iter(domain))
+                val_fact = ("Val", i, j, w)
+                if val_fact not in test_facts:
+                    # Verify the forced assignment is itself consistent
+                    new_tf = test_facts | {val_fact}
+                    new_ti = _extend_index(test_index, val_fact)
+                    test_facts = new_tf
+                    test_index = new_ti
+                    changed    = True
+
+    return True, test_facts, test_index
+
 
 def _facts_have_contradiction(rules, facts, facts_index):
     for fact in facts:
