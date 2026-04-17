@@ -1,89 +1,59 @@
 from FOL.cnf_converter import _rule_to_clause
+
 def ground_to_clauses(facts, rules, N):
     clauses = []
 
-    # Facts → unit clauses
+    # Facts → unit clauses (already ground)
     for fact in facts:
-        clauses.append((fact,)) # wrap in tuple to make it a clause
-    
-    grounded_facts, grounded_rules = ground_kb(facts, rules, N)
-    for rule in grounded_rules:
-        clause = _rule_to_clause(rule)
-        if clause:
-            clauses.append(clause)
+        clauses.append((fact,))
 
-    return clauses
-
-def ground_kb(facts, rules, N):
-    """
-    Ground symbolic FOL rules over concrete domain {1..N}.
-    
-    Replaces all ?variable patterns with concrete values by
-    iterating over all possible combinations of {0..N-1} for
-    index variables and {1..N} for value variables.
-    
-    This is what the teacher means by:
-    "Instantiate FOL axioms over the concrete index domain {1..N}"
-    """
-    grounded_facts = list(facts)
-    grounded_rules = []
-
-    # Domain for index variables (rows, cols): 0..N-1
-    # Domain for value variables: 1..N
     index_domain = list(range(N))
     value_domain = list(range(1, N + 1))
 
     for rule in rules:
-        name       = rule["name"]
-        premises   = rule["premises"]
-        condition  = rule.get("condition", lambda b: True)
-        conclusion = rule["conclusion"]
+        # ── Step 1: CNF conversion on the SYMBOLIC rule (done once per rule)
+        symbolic_clause = _rule_to_clause(rule)
+        if not symbolic_clause:
+            continue
 
-        # Identify all unique variables in this rule
-        variables = _collect_variables(premises, conclusion)
+        condition = rule.get("condition", lambda b: True)
 
-        # Classify each variable as index or value
+        # ── Step 2: collect variables from the symbolic clause, not the rule dict
+        variables = _collect_vars_from_clause(symbolic_clause)
         var_domains = _assign_domains(variables, index_domain, value_domain)
 
-        # Generate all combinations — cartesian product over variable domains
+        # ── Step 3: ground the symbolic clause
         for binding in _all_bindings(var_domains):
-            # Check side condition with this binding
             if not condition(binding):
                 continue
 
-            # Instantiate premises
-            ground_premises = [
-                _instantiate(p, binding) for p in premises
-            ]
+            ground_clause = tuple(
+                _instantiate_literal(lit, binding)
+                for lit in symbolic_clause
+            )
+            clauses.append(ground_clause)
 
-            # Instantiate conclusion
-            ground_conclusion = _instantiate(conclusion, binding)
-
-            grounded_rules.append({
-                "name":       name,
-                "premises":   ground_premises,
-                "conclusion": ground_conclusion
-            })
-
-    return grounded_facts, grounded_rules
+    return clauses
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Helpers
-# ─────────────────────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _collect_variables(premises, conclusion):
+def _collect_vars_from_clause(clause):
+    """Collect all ?variables that appear inside a symbolic CNF clause."""
     variables = set()
-    all_preds = list(premises)
-    if conclusion != ("FALSE",):
-        all_preds.append(conclusion)          # don't iterate over FALSE
-
-    for pred in all_preds:
-        for arg in pred:
+    for literal in clause:
+        pred = literal[1] if literal[0] == "NOT" else literal
+        for arg in pred[1:]:           # skip the predicate name at index 0
             if isinstance(arg, str) and arg.startswith("?"):
                 variables.add(arg)
     return variables
 
+
+def _instantiate_literal(literal, binding):
+    """Ground a single CNF literal — handles both positive and negated forms."""
+    if literal[0] == "NOT":
+        return ("NOT", _instantiate(literal[1], binding))
+    return _instantiate(literal, binding)
 
 def _assign_domains(variables, index_domain, value_domain):
     """
