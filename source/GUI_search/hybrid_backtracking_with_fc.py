@@ -63,7 +63,7 @@ def backtrack_with_fc(puzzle, facts, rules, domains, stats, history):
         new_domains = copy_domains(working_domains)
         new_domains[(i, j)] = {val}
         candidate_facts = working_facts | {("Val", i, j, val)}
-        history.append(('assign', i, j, val))
+        history.append(('guess', i, j, val))
 
         result = backtrack_with_fc(puzzle, candidate_facts, rules, new_domains, stats, history)
         if result:

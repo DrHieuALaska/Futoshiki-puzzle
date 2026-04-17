@@ -466,7 +466,7 @@ def solve_astar(puzzle, kb, heuristic='combined', pruning='fc'):
 
             succ_dom           = _copy_domains(curr_dom)
             succ_dom[(ci, cj)] = {val}
-            succ_history = curr_history + [('assign', ci, cj, val)]
+            succ_history = curr_history + [('astar guess', ci, cj, val)]
 
             # prunning step
             if pruning == 'fc':

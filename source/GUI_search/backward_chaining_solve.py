@@ -48,7 +48,7 @@ def solve_backward_chaining(puzzle, kb, history):
             _, i, j, v = fact
             assignment[(i, j)] = v
 
-    result = _sld_search(puzzle, N, facts, rules, assignment)
+    result = _sld_search(puzzle, N, facts, rules, assignment, history)
     if result is None:
         return None
 

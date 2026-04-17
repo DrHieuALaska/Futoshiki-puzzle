@@ -1405,6 +1405,10 @@ class FutoshikiApp(tk.Tk):
                 ht.insert(tk.END, "\n")
             elif action == "assign":
                 ht.insert(tk.END, f"= ({r},{c}) \u2190 {val}\n", "assign")
+            elif action == "guess":
+                ht.insert(tk.END, f"\u21a9\uFE0F FC failed, Guess on ({r},{c}) \u2190 {val}\n", "guess")
+            elif action == "astar guess":
+                ht.insert(tk.END, f"\u21a9\uFE0F A* Guess on ({r},{c}) \u2190 {val}\n", "astar guess")
             elif action == "clear":
                 ht.insert(tk.END, f"  ({r},{c}) undo {val}\n", "clear")
             else:
@@ -1452,7 +1456,7 @@ class FutoshikiApp(tk.Tk):
         """Apply the action at history[idx] to the board display."""
         step = self.history[idx]
         action, r, c, val = step[0], step[1], step[2], step[3]
-        if action in ("assign", "derive"):
+        if action in ("assign", "derive", "guess", "astar guess"):
             self.puzzle.grid[r][c] = val
             self._update_cell(r, c, val, "step")
         elif action == "clear":
