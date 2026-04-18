@@ -3,7 +3,7 @@ GUI.py — Futoshiki Puzzle Solver
 Layout:  Header | [Sidebar | Board | Stats Panel] | Status Bar
 Modes:   Play (human input) | Algorithm
 """
-import copy, os, platform, random, threading, time
+import copy, ctypes, os, platform, random, threading, time
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext
 
@@ -212,13 +212,15 @@ class FutoshikiApp(tk.Tk):
         self.redo_stack    = []       # [(r, c, old_val, new_val)]
 
         # ── Solver state ──────────────────────────────────────────────
-        self.solving        = False
-        self.stop_flag      = False
-        self.history        = []
-        self.replay_running = False
-        self.replay_paused  = False
-        self.replay_index   = 0
-        self._last_solution = None   # kept for Skip-to-End and replay finish
+        self.solving         = False
+        self.stop_flag       = threading.Event()  # .set() = stop, .is_set() = check
+        self._solve_gen      = 0                  # generation counter — mỗi lần solve +1
+        self._solver_thread  = None               # thread hiện tại, để force-kill nếu cần
+        self.history         = []
+        self.replay_running  = False
+        self.replay_paused   = False
+        self.replay_index    = 0
+        self._last_solution  = None               # kept for Skip-to-End and replay finish
 
         # ── Tk variables ──────────────────────────────────────────────
         self.mode_var      = tk.StringVar(value="play")
@@ -829,6 +831,7 @@ class FutoshikiApp(tk.Tk):
                     self.cell_vars[i][j].set("")
                     self.cell_state[i][j] = "empty"
         self._deselect_cell()
+        self._refresh_all_cells()  # áp lại màu đúng cho tất cả ô
 
     # PLAY MODE — Cell Interaction
     def _on_cell_click(self, r, c):
@@ -1140,6 +1143,8 @@ class FutoshikiApp(tk.Tk):
             f"{self.diff_var.get()} / {self.size_var.get()} / {fname}")
 
     def _load_random(self):
+        if self.solving:
+            self._stop_solver()
         diff = self.diff_var.get()
         size = self.size_var.get()
         base = os.path.dirname(os.path.abspath(__file__))
@@ -1162,6 +1167,8 @@ class FutoshikiApp(tk.Tk):
             messagebox.showerror("Load Error", f"Failed to load puzzle:\n{e}")
 
     def _load_file(self):
+        if self.solving:
+            self._stop_solver()
         base = os.path.dirname(os.path.abspath(__file__))
         path = filedialog.askopenfilename(
             title="Select Futoshiki puzzle file",
@@ -1214,7 +1221,9 @@ class FutoshikiApp(tk.Tk):
 
         self._reset()
         self.solving   = True
-        self.stop_flag = False
+        self.stop_flag.clear()
+        self._solve_gen += 1          # tăng generation — vô hiệu hoá kết quả cũ
+        gen = self._solve_gen
         self._set_status("Solving\u2026", "info")
         self.stat_vars["status_disp"].set("Solving\u2026")
         self._set_buttons_solving(True)
@@ -1225,19 +1234,66 @@ class FutoshikiApp(tk.Tk):
         puzzle_copy = copy.deepcopy(self.puzzle)
         algo = self.algo_var.get()
 
-        threading.Thread(target=self._run_solver,
-                         args=(algo, puzzle_copy), daemon=True).start()
+        t = threading.Thread(target=self._run_solver,
+                             args=(algo, puzzle_copy, gen), daemon=True)
+        self._solver_thread = t
+        t.start()
+
+    # ─── Thread force-kill ───────────────────────────────────────────
+
+    @staticmethod
+    def _raise_in_thread(tid, exc_type):
+        """Dùng CPython internal API để ném exception vào thread đang chạy.
+        Chỉ hoạt động trên CPython (PyPy không hỗ trợ).
+        Solver sẽ bị gián đoạn tại bất kỳ bytecode nào — hiệu quả hơn flag."""
+        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
+            ctypes.c_ulong(tid),
+            ctypes.py_object(exc_type)
+        )
+        return res  # 1 = thành công, 0 = thread không tồn tại
+
+    def _kill_solver_thread(self):
+        """Gửi SystemExit vào solver thread để buộc nó dừng ngay lập tức."""
+        t = self._solver_thread
+        if t is None or not t.is_alive():
+            return
+        result = self._raise_in_thread(t.ident, SystemExit)
+        if result == 0:
+            # Thread đã tự kết thúc trước khi kịp kill — không sao
+            pass
 
     def _stop_solver(self):
         if not self.solving:
             return
-        self.stop_flag = True
-        self.solving   = False
+        # Bước 1: set Event để solver tự dừng nếu nó đang check flag
+        self.stop_flag.set()
+        self.solving = False
+        # Bước 2: tăng generation — mọi kết quả từ thread cũ sẽ bị bỏ qua
+        self._solve_gen += 1
+        # Bước 3: force-raise SystemExit vào thread — dừng ngay lập tức
+        self._kill_solver_thread()
+        self._solver_thread = None
+        # Bước 4: khôi phục UI
+        self._restore_initial_grid()
+        self.history      = []
+        self.replay_index = 0
+        self._last_solution = None
+        self._clear_history_display()
         self._set_status("Stopped by user", "warn")
         self.stat_vars["status_disp"].set("Stopped")
+        self.time_var.set("")
+        self._step_var.set("")
         self._set_buttons_solving(False)
 
-    def _run_solver(self, algo, p):
+    def _run_solver(self, algo, p, gen):
+        """Chạy solver trong thread riêng.
+        - stop_flag.is_set(): thoát sớm nếu user nhấn Stop
+        - gen != self._solve_gen: thoát nếu đây là thread cũ (đã bị thay thế)
+        - SystemExit được raise bởi _kill_solver_thread sẽ được catch bởi except
+        """
+        def cancelled():
+            return self.stop_flag.is_set() or gen != self._solve_gen
+
         kb = KnowledgeBase(p)
         t0 = time.time()
         solution, stats, history = None, {}, []
@@ -1257,6 +1313,8 @@ class FutoshikiApp(tk.Tk):
             elif algo == "Forward Chaining":
                 is_complete, solution, domains, stats, history = \
                     forward_chaining_solve(p, kb)
+                if cancelled():
+                    return
                 elapsed = time.time() - t0
                 if solution is None:
                     self.after(0, self._show_fc_result,
@@ -1273,15 +1331,15 @@ class FutoshikiApp(tk.Tk):
             elif algo == "Hybrid":
                 solution, stats, history = solve_hybrid_backtracking_with_fc(p, kb)
 
-        except Exception as e:
-            if not self.stop_flag:
+        except (SystemExit, Exception) as e:
+            if not cancelled() and not isinstance(e, SystemExit):
                 self.after(0, self._set_status, f"Error: {e}", "error")
                 self.after(0, self.stat_vars["status_disp"].set, "Error")
+                self.after(0, self._set_buttons_solving, False)
             self.solving = False
-            self.after(0, self._set_buttons_solving, False)
             return
 
-        if self.stop_flag:
+        if cancelled():
             self.solving = False
             return
 
@@ -1311,15 +1369,9 @@ class FutoshikiApp(tk.Tk):
         self.replay_index = 0
         self._update_history_text(self.history)
 
-        if self.history:
-            # Auto-play step-by-step animation
-            self._set_status(f"Solved with {algo} \u2014 animating steps\u2026", "ok")
-            self._replay_history()
-        else:
-            # No history recorded by this algorithm — show solution directly
-            self._fill_solution(solution)
-            self._set_status(f"Solved with {algo}", "ok")
-            self._set_buttons_replay("idle")
+        self._fill_solution(solution)
+        self._set_status(f"Solved with {algo}", "ok")
+        self._set_buttons_replay("idle")
 
     def _show_fc_result(self, case, solution, elapsed, algo, stats, history):
         size_str = f"{self.puzzle.N}\u00d7{self.puzzle.N}" if self.puzzle else "\u2014"
