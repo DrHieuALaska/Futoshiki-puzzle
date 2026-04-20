@@ -1,0 +1,4 @@
+# No third-party Python packages are required for the code in source/.
+# Python 3 is required.
+# Tkinter must be available in the local Python installation to run GUI.py.
+# If tkinter is missing on Linux, install the platform package such as python3-tk.
